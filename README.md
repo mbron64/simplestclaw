@@ -1,117 +1,119 @@
-# simplestclaw
+<p align="center">
+  <img src="apps/web/public/red_claw.png" width="80" alt="SimplestClaw Logo" />
+</p>
 
-The simplest way to set up and use OpenClaw. One click. No Telegram required.
+<h1 align="center">simplestclaw</h1>
 
-**🌐 [simplestclaw.com](https://simplestclaw.com)**
+<p align="center">
+  <strong>The simplest way to run OpenClaw. One click. No Telegram required.</strong>
+</p>
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![CI](https://github.com/mbron64/simplestclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/mbron64/simplestclaw/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://simplestclaw.com">Website</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="https://github.com/mbron64/simplestclaw/releases">Downloads</a> •
+  <a href="#contributing">Contributing</a>
+</p>
 
-## What is this?
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <a href="https://github.com/mbron64/simplestclaw/actions/workflows/ci.yml"><img src="https://github.com/mbron64/simplestclaw/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/mbron64/simplestclaw/releases"><img src="https://img.shields.io/github/v/release/mbron64/simplestclaw" alt="Release" /></a>
+</p>
 
-simplestclaw makes it dead simple to get OpenClaw running - either on your own machine or in the cloud. No complex setup, no Telegram bots, just click and go.
+---
 
-**Two ways to use it:**
+## What is SimplestClaw?
 
-1. **Local (Free)** - Download our desktop app, it bundles OpenClaw and runs on your machine
-2. **Hosted (~$5/mo)** - Click "Deploy on Railway" and get a cloud instance in 60 seconds
+SimplestClaw makes it dead simple to get [OpenClaw](https://github.com/openclawai/openclaw) running — either on your own machine or in the cloud. No complex setup, no Telegram bots, just click and go.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-anthropic)
+- ✅ **One-click setup** for both local and cloud deployments
+- ✅ **Desktop app** that bundles everything you need (macOS)
+- ✅ **Cloud deploy** to Railway in under 60 seconds
+- ✅ **100% open source** (MIT license)
 
-## Features
-
-- One-click setup for both local and hosted deployments
-- Built-in chat UI with streaming responses
-- Tool call visualization (see what OpenClaw is doing)
-- Dashboard for managing your instance
-- 100% open source (MIT license)
+---
 
 ## Quick Start
 
-### Option 1: Local (Desktop App)
+### Option 1: Desktop App (Free)
 
-Download for your platform:
+Download and run locally — your data stays on your machine.
 
-- [macOS (Universal)](https://github.com/mbron64/simplestclaw/releases/latest)
-- Windows - Coming soon
-- Linux - Coming soon
+**[⬇️ Download for macOS](https://github.com/mbron64/simplestclaw/releases/latest)**
 
-### Option 2: Hosted (Railway)
+> Windows & Linux coming soon
 
-Deploy OpenClaw to the cloud in under 60 seconds. Choose your AI provider:
+### Option 2: Cloud (Railway)
 
-| Provider | Deploy |
-|----------|--------|
-| Anthropic (Claude) | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-anthropic) |
-| OpenAI (GPT-4) | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openai) |
-| Google (Gemini) | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-gemini) |
-| OpenRouter | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openrouter) |
+Deploy to the cloud in 60 seconds. Pick your AI provider:
 
-**Steps:**
-1. Click the deploy button for your provider
-2. Sign in to Railway (or create account)
-3. Enter your API key when prompted
-4. Click "Deploy"
-5. Copy your gateway token and connect
+| Provider | |
+|----------|---|
+| **Anthropic** (Claude) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-anthropic) |
+| **OpenAI** (GPT-4) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openai) |
+| **Google** (Gemini) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-gemini) |
+| **OpenRouter** | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openrouter) |
 
-**Requirements:**
-- Railway Hobby plan ($5/month) - free trial has memory limits
-- API key from one of: Anthropic, OpenAI, Google, or OpenRouter
+<details>
+<summary><strong>What you'll need</strong></summary>
 
-**Environment Variables:**
+- Railway Hobby plan ($5/month) — free trial has memory limits
+- API key from your chosen provider
 
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | From [console.anthropic.com](https://console.anthropic.com) |
-| `OPENAI_API_KEY` | From [platform.openai.com](https://platform.openai.com) |
-| `GOOGLE_API_KEY` | From [aistudio.google.com](https://aistudio.google.com) |
-| `OPENROUTER_API_KEY` | From [openrouter.ai](https://openrouter.ai) |
-| `OPENCLAW_GATEWAY_TOKEN` | Auto-generated (don't change) |
+</details>
 
-*You only need one API key. You pay Railway directly - we never touch your money.*
+---
+
+## Why SimplestClaw?
+
+| | SimplestClaw | Other Options |
+|---|---|---|
+| Setup | One click | Terminal + config files |
+| Telegram | Not required | Often required |
+| Desktop | Native app | Browser-only |
+| Open source | Yes (MIT) | Varies |
+| Cost | Free local / $5 cloud | Varies |
+
+---
 
 ## Development
 
 ```bash
-# Clone the repo
 git clone https://github.com/mbron64/simplestclaw.git
 cd simplestclaw
-
-# Install dependencies
 pnpm install
-
-# Start development server
 pnpm dev
 ```
 
-## Project Structure
+<details>
+<summary><strong>Project structure</strong></summary>
 
 ```
 simplestclaw/
 ├── apps/
-│   ├── web/           # Marketing website
-│   ├── gateway/       # Railway-deployable OpenClaw gateway
-│   └── desktop/       # Tauri desktop app (macOS)
+│   ├── web/        # Marketing website
+│   ├── gateway/    # Railway-deployable gateway
+│   └── desktop/    # Tauri desktop app
 ├── packages/
-│   ├── ui/            # Shared UI components
-│   └── openclaw-client/  # OpenClaw Gateway WebSocket client
+│   ├── ui/         # Shared components
+│   └── openclaw-client/
 └── package.json
 ```
 
-## How is this different from simpleclaw?
+</details>
 
-| Feature | simpleclaw | simplestclaw |
-|---------|------------|--------------|
-| Setup | Telegram bot required | One-click button |
-| Deployment | Cloud only | Local + Cloud |
-| Chat | External (Telegram) | Built-in web UI |
-| Payment | Through simpleclaw | Direct to Railway |
-| Open source | No | Yes (MIT) |
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
+
+- 🐛 [Report a bug](https://github.com/mbron64/simplestclaw/issues/new?template=bug_report.md)
+- 💡 [Request a feature](https://github.com/mbron64/simplestclaw/issues/new?template=feature_request.md)
+
+---
 
 ## License
 
-MIT - see [LICENSE](LICENSE)
+MIT © [SimplestClaw](LICENSE)
