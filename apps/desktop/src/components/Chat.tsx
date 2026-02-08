@@ -3,9 +3,10 @@ import { Send, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { createOpenClawClient, type Message, type ConnectionState } from '@simplestclaw/openclaw-client';
 import { useAppStore } from '../lib/store';
+import { tauri } from '../lib/tauri';
 
 export function Chat() {
-  const { gatewayStatus, setScreen } = useAppStore();
+  const { gatewayStatus, setScreen, addActivityLog } = useAppStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -49,16 +50,46 @@ export function Chat() {
       })
       .on('onMessage', (msg) => {
         console.log('[Chat] Message received:', msg);
-        if (isActive) setMessages((prev) => [...prev, msg]);
+        if (isActive) {
+          setMessages((prev) => [...prev, msg]);
+          // Log AI response activity
+          if (msg.role === 'assistant') {
+            addActivityLog({
+              operationType: 'api_call',
+              details: `AI response received (${msg.content.length} chars)`,
+              status: 'success',
+            });
+            // Also persist to backend
+            tauri.addActivityEntry('api_call', `AI response received (${msg.content.length} chars)`, 'success').catch(() => {});
+          }
+        }
       })
       .on('onConnect', () => {
         console.log('[Chat] Connected!');
+        addActivityLog({
+          operationType: 'gateway',
+          details: 'Connected to OpenClaw gateway',
+          status: 'success',
+        });
+        tauri.addActivityEntry('gateway', 'Connected to OpenClaw gateway', 'success').catch(() => {});
       })
       .on('onError', (err) => {
         console.error('[Chat] Error:', err);
+        addActivityLog({
+          operationType: 'gateway',
+          details: `Gateway error: ${err.message || err}`,
+          status: 'failed',
+        });
+        tauri.addActivityEntry('gateway', `Gateway error: ${err.message || err}`, 'failed').catch(() => {});
       })
       .on('onDisconnect', (reason) => {
         console.log('[Chat] Disconnected:', reason);
+        addActivityLog({
+          operationType: 'gateway',
+          details: `Disconnected: ${reason || 'unknown'}`,
+          status: 'success',
+        });
+        tauri.addActivityEntry('gateway', `Disconnected: ${reason || 'unknown'}`, 'success').catch(() => {});
       });
 
     clientRef.current = client;
@@ -100,8 +131,20 @@ export function Chat() {
 
     try {
       await clientRef.current?.sendMessage(input);
+      addActivityLog({
+        operationType: 'api_call',
+        details: `Message sent (${input.length} chars)`,
+        status: 'success',
+      });
+      tauri.addActivityEntry('api_call', `Message sent (${input.length} chars)`, 'success').catch(() => {});
     } catch (err) {
       console.error('Failed to send message:', err);
+      addActivityLog({
+        operationType: 'api_call',
+        details: `Failed to send message: ${err}`,
+        status: 'failed',
+      });
+      tauri.addActivityEntry('api_call', `Failed to send message: ${err}`, 'failed').catch(() => {});
     } finally {
       setIsLoading(false);
     }

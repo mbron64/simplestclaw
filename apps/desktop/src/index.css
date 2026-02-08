@@ -19,12 +19,14 @@ body {
 }
 
 /* Hide scrollbar - matches website */
-html {
+html,
+.scrollbar-hide {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-html::-webkit-scrollbar {
+html::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 

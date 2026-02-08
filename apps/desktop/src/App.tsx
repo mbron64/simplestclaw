@@ -2,7 +2,8 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from './lib/store';
 import { tauri } from './lib/tauri';
 import { Loading } from './components/Loading';
-import { Settings } from './components/Settings';
+import { Onboarding } from './components/Onboarding';
+import { SettingsPanel } from './components/SettingsPanel';
 import { Chat } from './components/Chat';
 
 function App() {
@@ -61,7 +62,7 @@ function App() {
       setApiKeyConfigured(hasKey);
 
       if (!hasKey) {
-        setScreen('settings');
+        setScreen('onboarding');
         return;
       }
 
@@ -74,7 +75,7 @@ function App() {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
       setGatewayStatus({ type: 'error', message });
-      setScreen('settings');
+      setScreen('onboarding');
     }
   }, [setScreen, setGatewayStatus, setApiKeyConfigured, setError]);
 
@@ -120,8 +121,10 @@ function App() {
   switch (screen) {
     case 'loading':
       return <Loading />;
+    case 'onboarding':
+      return <Onboarding />;
     case 'settings':
-      return <Settings />;
+      return <SettingsPanel />;
     case 'chat':
       return <Chat />;
     default:

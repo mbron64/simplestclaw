@@ -1,7 +1,9 @@
+mod activity;
 mod config;
 pub mod runtime;
 mod sidecar;
 
+use activity::ActivityManager;
 use runtime::RuntimeManager;
 use sidecar::{SidecarManager, kill_orphaned_gateway_processes};
 use tauri::Manager;
@@ -22,6 +24,7 @@ pub fn run() {
             // Initialize managers
             app.manage(SidecarManager::default());
             app.manage(RuntimeManager::default());
+            app.manage(ActivityManager::default());
 
             // Auto-install runtime in background if not installed
             let app_handle = app.handle().clone();
@@ -62,6 +65,10 @@ pub fn run() {
             runtime::get_runtime_status,
             runtime::install_runtime,
             runtime::is_runtime_installed,
+            // Activity
+            activity::get_activity_log,
+            activity::clear_activity_log,
+            activity::add_activity_entry,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

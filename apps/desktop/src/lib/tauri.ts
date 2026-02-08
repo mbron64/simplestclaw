@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { GatewayInfo } from './store';
+import type { GatewayInfo, ActivityLogEntry } from './store';
 
 export interface Config {
   anthropicApiKey: string | null;
@@ -55,5 +55,28 @@ export const tauri = {
 
   async isRuntimeInstalled(): Promise<boolean> {
     return invoke('is_runtime_installed');
+  },
+
+  // Activity Log
+  async getActivityLog(): Promise<ActivityLogEntry[]> {
+    return invoke('get_activity_log');
+  },
+
+  async clearActivityLog(): Promise<void> {
+    return invoke('clear_activity_log');
+  },
+
+  async addActivityEntry(
+    operationType: ActivityLogEntry['operationType'],
+    details: string,
+    status: ActivityLogEntry['status'],
+    path?: string
+  ): Promise<void> {
+    return invoke('add_activity_entry', {
+      operationType,
+      details,
+      status,
+      path: path || null,
+    });
   },
 };
