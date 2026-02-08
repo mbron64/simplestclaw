@@ -81,7 +81,7 @@ export default function Home() {
             <h1 className="text-[56px] sm:text-[72px] font-medium tracking-[-0.04em] leading-[1.05]">
               Deploy OpenClaw with{' '}
               <span className="text-emerald-400">0</span>{' '}
-              <span className="inline-block w-[6ch]">
+              <span className="inline-block w-[3.5em]">
                 <CyclingText 
                   words={['stress', 'config', 'hassle', 'effort']} 
                   className="text-white"
