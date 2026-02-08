@@ -89,12 +89,12 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
                   </svg>
                 </div>
-                <span className="inline-block text-[13px] font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 mb-4">
-                  Free
-                </span>
-                <p className="text-[15px] text-white/50 leading-relaxed">
+                <p className="text-[15px] text-white/50 leading-relaxed mb-4">
                   Download the open source desktop app. Everything runs on your machine. Your data never leaves.
                 </p>
+                <span className="inline-block text-[13px] font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
+                  Free
+                </span>
                 <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-4 text-[13px] text-white/40">
                   <span>macOS</span>
                   <span className="w-1 h-1 rounded-full bg-white/20" />
@@ -122,12 +122,12 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
                   </svg>
                 </div>
-                <span className="inline-block text-[13px] font-medium px-2.5 py-1 rounded-full bg-white/5 text-white/60 mb-4">
-                  Via Railway
-                </span>
-                <p className="text-[15px] text-white/50 leading-relaxed">
+                <p className="text-[15px] text-white/50 leading-relaxed mb-4">
                   One-click deploy. Runs 24/7, accessible from any device.
                 </p>
+                <span className="inline-block text-[13px] font-medium px-2.5 py-1 rounded-full bg-white/5 text-white/60">
+                  Via Railway
+                </span>
                 <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-4 text-[13px] text-white/40">
                   <span>24/7 uptime</span>
                   <span className="w-1 h-1 rounded-full bg-white/20" />
