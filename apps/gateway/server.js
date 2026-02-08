@@ -147,8 +147,8 @@ function getWelcomePage(gatewayHost) {
         <tr><td><strong>WebSocket URL</strong></td><td><code>${wsUrl}</code></td></tr>
         <tr><td><strong>Gateway Token</strong></td><td>${tokenDisplay}</td></tr>
       </table>
-      <p>Copy the token above and paste it in the Control UI settings.</p>
-      <a class="button" href="/__openclaw__/control/" target="_blank">Open Control UI</a>
+      <p>Copy the token above, then paste it in the Control UI settings.</p>
+      <a class="button" href="/__openclaw__/control/#/overview" target="_blank">Open Control UI Settings</a>
     `;
   }
 
