@@ -108,17 +108,18 @@ impl SidecarManager {
         let token = generate_token();
         let port = config.gateway_port;
 
-        // Get bundled npx path (prioritize bundled over system)
-        let npx_cmd = find_npx().ok_or(
+        // Get bundled node path (prioritize bundled over system)
+        let (node_cmd, npx_cli_path) = find_node_and_npx().ok_or(
             "Node.js runtime not found. Please click 'Install Runtime' in Settings."
         )?;
 
         println!("[openclaw] Starting gateway via bundled Node.js...");
-        println!("[openclaw] Using npx at: {}", npx_cmd);
+        println!("[openclaw] Using node at: {}", node_cmd);
+        println!("[openclaw] Using npx-cli at: {}", npx_cli_path);
 
-        // Get the bin directory for PATH (npx needs node in PATH)
-        let npx_path = std::path::Path::new(&npx_cmd);
-        let bin_dir = npx_path.parent().map(|p| p.to_string_lossy().to_string());
+        // Get the bin directory for PATH
+        let node_path = std::path::Path::new(&node_cmd);
+        let bin_dir = node_path.parent().map(|p| p.to_string_lossy().to_string());
         
         // Build PATH with node bin directory first
         let path_env = if let Some(ref bin) = bin_dir {
@@ -130,10 +131,11 @@ impl SidecarManager {
 
         println!("[openclaw] PATH: {}", path_env.chars().take(200).collect::<String>());
 
-        // Spawn npx openclaw gateway
-        // npx will download and cache openclaw automatically
-        let mut cmd = Command::new(&npx_cmd);
+        // Spawn node directly with npx-cli.js to avoid shebang issues
+        // This ensures we use our bundled node, not whatever is in /usr/bin/env
+        let mut cmd = Command::new(&node_cmd);
         cmd.args([
+                &npx_cli_path,
                 "--yes",  // Auto-confirm package installation
                 "openclaw",
                 "gateway",
@@ -278,28 +280,50 @@ impl SidecarManager {
     }
 }
 
-/// Find npx command - prioritizes bundled runtime over system
+/// Find node and npx-cli.js paths - prioritizes bundled runtime over system
+/// 
+/// Returns (node_path, npx_cli_path) tuple
 /// 
 /// Order of preference:
 /// 1. Bundled Node.js runtime (for normal users)
 /// 2. System Node.js (for developers who prefer their own)
-fn find_npx() -> Option<String> {
+fn find_node_and_npx() -> Option<(String, String)> {
     // First, try the bundled runtime (preferred for normal users)
-    if let Some(bundled_npx) = RuntimeManager::npx_path() {
-        return Some(bundled_npx.to_string_lossy().to_string());
+    if let Some(node_path) = RuntimeManager::node_path() {
+        let node_str = node_path.to_string_lossy().to_string();
+        
+        // npx-cli.js is at ../lib/node_modules/npm/bin/npx-cli.js relative to node binary
+        let npx_cli = node_path
+            .parent()? // bin/
+            .parent()? // node-vX.X.X-platform/
+            .join("lib/node_modules/npm/bin/npx-cli.js");
+        
+        if npx_cli.exists() {
+            return Some((node_str, npx_cli.to_string_lossy().to_string()));
+        }
     }
 
     // Fall back to system Node.js for developers
-    find_system_npx()
+    find_system_node_and_npx()
 }
 
-/// Find system-installed npx (fallback for developers)
-fn find_system_npx() -> Option<String> {
+/// Find system-installed node and npx (fallback for developers)
+fn find_system_node_and_npx() -> Option<(String, String)> {
+    // Try to find system node
+    let node_path = find_system_command("node")?;
+    let npx_path = find_system_command("npx")?;
+    
+    // For system npx, we can just run it directly since it's properly installed
+    // Return node path and npx path (we'll handle this specially)
+    Some((node_path, npx_path))
+}
+
+/// Find a system command by name
+fn find_system_command(cmd: &str) -> Option<String> {
     #[cfg(target_os = "windows")]
     {
-        // On Windows, try where.exe first
         let output = Command::new("where.exe")
-            .arg("npx")
+            .arg(cmd)
             .output()
             .ok()?;
 
@@ -314,21 +338,6 @@ fn find_system_npx() -> Option<String> {
                 return Some(path);
             }
         }
-
-        // Try common Windows locations
-        let appdata = std::env::var("APPDATA").ok()?;
-        let locations = [
-            format!("{}\\npm\\npx.cmd", appdata),
-            format!("{}\\fnm\\aliases\\default\\npx.cmd", appdata),
-            "C:\\Program Files\\nodejs\\npx.cmd".to_string(),
-        ];
-
-        for loc in locations {
-            if std::path::Path::new(&loc).exists() {
-                return Some(loc);
-            }
-        }
-        
         None
     }
 
@@ -336,7 +345,7 @@ fn find_system_npx() -> Option<String> {
     {
         // On Unix, try which first
         let output = Command::new("which")
-            .arg("npx")
+            .arg(cmd)
             .output()
             .ok()?;
 
@@ -351,20 +360,20 @@ fn find_system_npx() -> Option<String> {
         let home = std::env::var("HOME").ok()?;
         let locations = [
             // nvm (most common)
-            format!("{}/.nvm/current/bin/npx", home),
+            format!("{}/.nvm/current/bin/{}", home, cmd),
             // volta
-            format!("{}/.volta/bin/npx", home),
+            format!("{}/.volta/bin/{}", home, cmd),
             // fnm
-            format!("{}/.local/share/fnm/aliases/default/bin/npx", home),
-            format!("{}/.fnm/aliases/default/bin/npx", home),
+            format!("{}/.local/share/fnm/aliases/default/bin/{}", home, cmd),
+            format!("{}/.fnm/aliases/default/bin/{}", home, cmd),
             // asdf
-            format!("{}/.asdf/shims/npx", home),
+            format!("{}/.asdf/shims/{}", home, cmd),
             // mise (formerly rtx)
-            format!("{}/.local/share/mise/shims/npx", home),
+            format!("{}/.local/share/mise/shims/{}", home, cmd),
             // System locations
-            "/usr/local/bin/npx".to_string(),
-            "/opt/homebrew/bin/npx".to_string(), // Homebrew on Apple Silicon
-            "/usr/bin/npx".to_string(),
+            format!("/usr/local/bin/{}", cmd),
+            format!("/opt/homebrew/bin/{}", cmd), // Homebrew on Apple Silicon
+            format!("/usr/bin/{}", cmd),
         ];
 
         for loc in locations {
@@ -382,9 +391,9 @@ fn find_system_npx() -> Option<String> {
                 .collect();
             versions.sort();
             if let Some(newest) = versions.last() {
-                let npx_path = newest.join("bin/npx");
-                if npx_path.exists() {
-                    return Some(npx_path.to_string_lossy().to_string());
+                let cmd_path = newest.join("bin").join(cmd);
+                if cmd_path.exists() {
+                    return Some(cmd_path.to_string_lossy().to_string());
                 }
             }
         }
