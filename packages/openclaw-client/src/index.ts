@@ -7,6 +7,12 @@
  * Protocol docs: https://docs.clawd.bot/gateway/protocol
  */
 
-export type { GatewayConfig, GatewayEventHandlers, ConnectionState, Message, ToolCall } from './types';
+export type {
+  GatewayConfig,
+  GatewayEventHandlers,
+  ConnectionState,
+  Message,
+  ToolCall,
+} from './types';
 export { OpenClawClient } from './client';
 export { createOpenClawClient } from './client';

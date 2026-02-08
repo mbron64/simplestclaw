@@ -66,7 +66,19 @@ export interface ConnectParams {
   minProtocol: number;
   maxProtocol: number;
   client: {
-    id: 'cli' | 'test' | 'webchat-ui' | 'openclaw-control-ui' | 'webchat' | 'gateway-client' | 'openclaw-macos' | 'openclaw-ios' | 'openclaw-android' | 'node-host' | 'fingerprint' | 'openclaw-probe';
+    id:
+      | 'cli'
+      | 'test'
+      | 'webchat-ui'
+      | 'openclaw-control-ui'
+      | 'webchat'
+      | 'gateway-client'
+      | 'openclaw-macos'
+      | 'openclaw-ios'
+      | 'openclaw-android'
+      | 'node-host'
+      | 'fingerprint'
+      | 'openclaw-probe';
     version: string;
     platform: string;
     mode: 'cli' | 'node' | 'test' | 'webchat' | 'ui' | 'backend' | 'probe';
