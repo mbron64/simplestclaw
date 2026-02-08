@@ -87,8 +87,13 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: |
           mkdir -p ~/private_keys
-          echo "$APPLE_API_KEY_CONTENT" > ~/private_keys/AuthKey_${APPLE_API_KEY}.p8
+          # Decode base64-encoded API key to preserve exact .p8 format
+          echo "$APPLE_API_KEY_CONTENT" | base64 --decode > ~/private_keys/AuthKey_${APPLE_API_KEY}.p8
           chmod 600 ~/private_keys/AuthKey_${APPLE_API_KEY}.p8
+          # Verify the key file is valid PEM format
+          echo "API key created. Verifying format:"
+          head -1 ~/private_keys/AuthKey_${APPLE_API_KEY}.p8
+          tail -1 ~/private_keys/AuthKey_${APPLE_API_KEY}.p8
       
       - name: Install frontend dependencies
         run: pnpm install
