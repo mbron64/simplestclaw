@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import http from 'http';
+import net from 'net';
 
 const PORT = process.env.PORT || 3000;
 const OPENCLAW_PORT = 18789;
@@ -63,9 +64,37 @@ function startOpenClaw() {
   }, 3000);
 }
 
-// Simple HTTP server for health checks
+// Proxy HTTP request to OpenClaw
+function proxyRequest(req, res) {
+  const options = {
+    hostname: 'localhost',
+    port: OPENCLAW_PORT,
+    path: req.url,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: `localhost:${OPENCLAW_PORT}`
+    }
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error(`Proxy error: ${err.message}`);
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Bad Gateway', message: 'OpenClaw not available' }));
+  });
+
+  req.pipe(proxyReq);
+}
+
+// HTTP server with reverse proxy
 const server = http.createServer((req, res) => {
-  if (req.url === '/health' || req.url === '/') {
+  // Health check endpoint for Railway
+  if (req.url === '/health') {
     if (openclawHealthy) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
@@ -77,11 +106,51 @@ const server = http.createServer((req, res) => {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'starting' }));
     }
-  } else {
-    // Redirect to OpenClaw dashboard
-    res.writeHead(302, { 'Location': `http://localhost:${OPENCLAW_PORT}${req.url}` });
-    res.end();
+    return;
   }
+
+  // Proxy all other requests to OpenClaw
+  proxyRequest(req, res);
+});
+
+// Handle WebSocket upgrades - proxy to OpenClaw
+server.on('upgrade', (req, socket, head) => {
+  // Create TCP connection to OpenClaw
+  const proxySocket = net.connect(OPENCLAW_PORT, 'localhost', () => {
+    // Reconstruct the HTTP upgrade request
+    const headers = Object.entries(req.headers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\r\n');
+    
+    const upgradeRequest = [
+      `${req.method} ${req.url} HTTP/1.1`,
+      headers,
+      '',
+      ''
+    ].join('\r\n');
+
+    // Send the upgrade request to OpenClaw
+    proxySocket.write(upgradeRequest);
+    
+    // Send any initial data (head)
+    if (head && head.length > 0) {
+      proxySocket.write(head);
+    }
+
+    // Pipe data bidirectionally
+    socket.pipe(proxySocket);
+    proxySocket.pipe(socket);
+  });
+
+  proxySocket.on('error', (err) => {
+    console.error(`WebSocket proxy error: ${err.message}`);
+    socket.end();
+  });
+
+  socket.on('error', (err) => {
+    console.error(`Client socket error: ${err.message}`);
+    proxySocket.end();
+  });
 });
 
 // Graceful shutdown
@@ -104,6 +173,7 @@ process.on('SIGINT', () => {
 // Start
 startOpenClaw();
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Health server listening on port ${PORT}`);
+  console.log(`Proxy server listening on port ${PORT}`);
   console.log(`OpenClaw gateway will run on port ${OPENCLAW_PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
 });
