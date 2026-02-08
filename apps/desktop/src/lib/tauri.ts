@@ -57,6 +57,10 @@ export const tauri = {
     return invoke('is_runtime_installed');
   },
 
+  async needsRuntimeUpgrade(): Promise<boolean> {
+    return invoke('needs_runtime_upgrade');
+  },
+
   // Activity Log
   async getActivityLog(): Promise<ActivityLogEntry[]> {
     return invoke('get_activity_log');

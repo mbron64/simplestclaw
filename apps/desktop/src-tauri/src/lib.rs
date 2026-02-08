@@ -65,6 +65,7 @@ pub fn run() {
             runtime::get_runtime_status,
             runtime::install_runtime,
             runtime::is_runtime_installed,
+            runtime::needs_runtime_upgrade,
             // Activity
             activity::get_activity_log,
             activity::clear_activity_log,

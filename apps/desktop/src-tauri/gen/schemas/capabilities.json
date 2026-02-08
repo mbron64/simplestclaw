@@ -1,9 +1,1 @@
-{
-  "default": {
-    "identifier": "default",
-    "description": "Default capability for simplestclaw desktop app",
-    "local": true,
-    "windows": ["main"],
-    "permissions": ["core:default", "shell:allow-open"]
-  }
-}
+{"default":{"identifier":"default","description":"Default capability for simplestclaw desktop app","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open"]}}

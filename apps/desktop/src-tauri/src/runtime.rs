@@ -15,38 +15,40 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// Node.js version to bundle
-const NODE_VERSION: &str = "22.13.1";
+/// NOTE: Node 25+ is required to fix fetch timeout bugs in Node 22's undici implementation
+/// See: https://github.com/nodejs/undici/issues/3410
+const NODE_VERSION: &str = "25.6.0";
 
 /// Download URLs for different platforms
 fn get_node_url() -> Option<(&'static str, &'static str)> {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     return Some((
-        concat!("https://nodejs.org/dist/v22.13.1/node-v22.13.1-darwin-arm64.tar.gz"),
-        "node-v22.13.1-darwin-arm64",
+        concat!("https://nodejs.org/dist/v25.6.0/node-v25.6.0-darwin-arm64.tar.gz"),
+        "node-v25.6.0-darwin-arm64",
     ));
 
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
     return Some((
-        concat!("https://nodejs.org/dist/v22.13.1/node-v22.13.1-darwin-x64.tar.gz"),
-        "node-v22.13.1-darwin-x64",
+        concat!("https://nodejs.org/dist/v25.6.0/node-v25.6.0-darwin-x64.tar.gz"),
+        "node-v25.6.0-darwin-x64",
     ));
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     return Some((
-        concat!("https://nodejs.org/dist/v22.13.1/node-v22.13.1-linux-x64.tar.gz"),
-        "node-v22.13.1-linux-x64",
+        concat!("https://nodejs.org/dist/v25.6.0/node-v25.6.0-linux-x64.tar.gz"),
+        "node-v25.6.0-linux-x64",
     ));
 
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
     return Some((
-        concat!("https://nodejs.org/dist/v22.13.1/node-v22.13.1-linux-arm64.tar.gz"),
-        "node-v22.13.1-linux-arm64",
+        concat!("https://nodejs.org/dist/v25.6.0/node-v25.6.0-linux-arm64.tar.gz"),
+        "node-v25.6.0-linux-arm64",
     ));
 
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
     return Some((
-        concat!("https://nodejs.org/dist/v22.13.1/node-v22.13.1-win-x64.zip"),
-        "node-v22.13.1-win-x64",
+        concat!("https://nodejs.org/dist/v25.6.0/node-v25.6.0-win-x64.zip"),
+        "node-v25.6.0-win-x64",
     ));
 
     #[cfg(not(any(
@@ -153,9 +155,62 @@ impl RuntimeManager {
         }
     }
 
-    /// Check if runtime is installed
+    /// Check if runtime is installed with the correct version
     pub fn is_installed() -> bool {
         Self::node_path().is_some() && Self::npx_path().is_some()
+    }
+
+    /// Check if installed version matches required version
+    /// Returns false if version mismatch (needs upgrade)
+    pub fn is_correct_version() -> bool {
+        let runtime_dir = match Self::runtime_dir() {
+            Some(d) => d,
+            None => return false,
+        };
+
+        let (_, expected_folder) = match get_node_url() {
+            Some(info) => info,
+            None => return false,
+        };
+
+        // Check if the expected version folder exists
+        let expected_path = runtime_dir.join(expected_folder);
+        expected_path.exists()
+    }
+
+    /// Remove old Node.js versions to free space and force upgrade
+    pub async fn cleanup_old_versions() -> Result<(), String> {
+        let runtime_dir = Self::runtime_dir().ok_or("Could not determine runtime directory")?;
+
+        if !runtime_dir.exists() {
+            return Ok(());
+        }
+
+        let (_, current_folder) = get_node_url().ok_or("Unsupported platform")?;
+
+        // Read all entries in runtime dir
+        let mut entries = tokio::fs::read_dir(&runtime_dir)
+            .await
+            .map_err(|e| format!("Failed to read runtime dir: {}", e))?;
+
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|e| format!("Failed to read entry: {}", e))?
+        {
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            // Remove old node versions (starts with "node-v" but isn't current)
+            if name.starts_with("node-v") && name != current_folder {
+                println!("[runtime] Removing old Node.js version: {}", name);
+                let path = entry.path();
+                if path.is_dir() {
+                    let _ = tokio::fs::remove_dir_all(&path).await;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Get runtime status
@@ -178,10 +233,16 @@ impl RuntimeManager {
     }
 
     /// Download and install the Node.js runtime
+    /// Will also upgrade if an older version is detected
     pub async fn install(&self) -> Result<(), String> {
-        // Check if already installed
-        if Self::is_installed() {
+        // Check if already installed with correct version
+        if Self::is_installed() && Self::is_correct_version() {
             return Ok(());
+        }
+
+        // Clean up old versions before installing new one
+        if let Err(e) = Self::cleanup_old_versions().await {
+            println!("[runtime] Warning: Failed to cleanup old versions: {}", e);
         }
 
         let (url, folder_name) = get_node_url()
@@ -359,5 +420,11 @@ pub async fn install_runtime(
 
 #[tauri::command]
 pub fn is_runtime_installed() -> bool {
-    RuntimeManager::is_installed()
+    RuntimeManager::is_installed() && RuntimeManager::is_correct_version()
+}
+
+#[tauri::command]
+pub fn needs_runtime_upgrade() -> bool {
+    // Has some Node installed but not the correct version
+    RuntimeManager::is_installed() && !RuntimeManager::is_correct_version()
 }
