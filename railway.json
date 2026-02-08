@@ -1,12 +1,13 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "pnpm --filter @simplestclaw/gateway install"
   },
   "deploy": {
-    "startCommand": "pnpm start",
-    "healthcheckPath": "/",
-    "healthcheckTimeout": 100,
+    "startCommand": "pnpm --filter @simplestclaw/gateway start",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
