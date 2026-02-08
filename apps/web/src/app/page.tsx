@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { GlowingEffect } from '@/components/ui/glowing-effect';
+import { CyclingText } from '@/components/ui/cycling-text';
 
 type DeploymentMode = 'local' | 'hosted' | null;
 type Provider = 'anthropic' | 'openai' | 'google' | 'openrouter' | null;
@@ -79,8 +80,12 @@ export default function Home() {
           <div className="text-center">
             <h1 className="text-[56px] sm:text-[72px] font-medium tracking-[-0.04em] leading-[1.05]">
               Deploy OpenClaw with{' '}
-              <span className="text-emerald-400">0</span>
-              {' '}stress
+              <span className="text-emerald-400">0</span>{' '}
+              <CyclingText 
+                words={['stress', 'config', 'servers', 'headaches']} 
+                className="text-emerald-400"
+                interval={2000}
+              />
             </h1>
             <p className="mt-6 text-[19px] text-white/50 leading-relaxed max-w-xl mx-auto">
               The easiest way to run OpenClaw. No terminal, no Telegram bots, no server configuration.
