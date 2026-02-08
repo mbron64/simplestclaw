@@ -126,7 +126,7 @@ export default function Home() {
                 </div>
                 <h2 className="text-[22px] font-medium mb-2">Run in the cloud</h2>
                 <p className="text-[15px] text-white/50 leading-relaxed">
-                  One-click deploy to Railway. Runs 24/7, accessible from any device.
+                  One-click deploy. Runs 24/7, accessible from any device.
                 </p>
                 <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-4 text-[13px] text-white/40">
                   <span>24/7 uptime</span>

@@ -11,4 +11,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial project setup
 - Web app with chat UI and dashboard
 - Desktop app with OpenClaw sidecar
-- Railway one-click deployment
+- One-click deployment
