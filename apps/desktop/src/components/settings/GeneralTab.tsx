@@ -1,3 +1,4 @@
+import { getVersion } from '@tauri-apps/api/app';
 import { AlertCircle, Check, Eye, EyeOff, Loader2, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../lib/store';
@@ -284,7 +285,7 @@ function RuntimeStatusSection({ runtimeDetails }: { runtimeDetails: TauriRuntime
 }
 
 // App Info Section Component
-function AppInfoSection() {
+function AppInfoSection({ version }: { version: string }) {
   return (
     <section>
       <h2 className="text-[15px] font-medium mb-1">About</h2>
@@ -297,7 +298,7 @@ function AppInfoSection() {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[14px] text-white/60">Version</span>
-          <span className="text-[14px] text-white/80 font-mono">0.2.4</span>
+          <span className="text-[14px] text-white/80 font-mono">{version}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[14px] text-white/60">Source</span>
@@ -361,10 +362,15 @@ export function GeneralTab() {
   const [error, setError] = useState<string | null>(null);
   const [runtimeDetails, setRuntimeDetails] = useState<TauriRuntimeStatus | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [appVersion, setAppVersion] = useState('...');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Get app version from Tauri
+        const version = await getVersion();
+        setAppVersion(version);
+
         const config = await tauri.getConfig();
         setProvider(config.provider || 'anthropic');
         if (config.anthropicApiKey) {
@@ -478,7 +484,7 @@ export function GeneralTab() {
         />
         <GatewayStatusSection />
         <RuntimeStatusSection runtimeDetails={runtimeDetails} />
-        <AppInfoSection />
+        <AppInfoSection version={appVersion} />
         <LogoutSection loggingOut={loggingOut} onLogout={handleLogout} />
       </div>
     </div>
