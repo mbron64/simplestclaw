@@ -301,25 +301,25 @@ export default function Home() {
                     { 
                       name: 'Anthropic', 
                       model: 'Claude',
-                      url: 'https://railway.com/new/template/simplestclaw-anthropic',
+                      url: 'https://railway.com/new/template/keg9xc',
                       color: '#D4A27F'
                     },
                     { 
                       name: 'OpenAI', 
                       model: 'GPT-4',
-                      url: 'https://railway.com/new/template/simplestclaw-openai',
+                      url: 'https://railway.com/new/template/5AZyoc',
                       color: '#10A37F'
                     },
                     { 
                       name: 'Google', 
                       model: 'Gemini',
-                      url: 'https://railway.com/new/template/simplestclaw-google',
+                      url: 'https://railway.com/new/template/mBTVRn',
                       color: '#4285F4'
                     },
                     { 
                       name: 'OpenRouter', 
                       model: 'Multi-model',
-                      url: 'https://railway.com/new/template/simplestclaw-openrouter',
+                      url: 'https://railway.com/new/template/b8dGl2',
                       color: '#6366F1'
                     },
                   ].map((provider) => (
