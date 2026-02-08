@@ -34,6 +34,12 @@
 import { spawn } from 'child_process';
 import http from 'http';
 import net from 'net';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // =============================================================================
 // Configuration
@@ -142,12 +148,16 @@ function getWelcomePage(gatewayHost) {
          <button onclick="navigator.clipboard.writeText('${token}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)" class="copy-btn">Copy</button>`
       : '<span class="warning-text">Not configured</span>';
     statusDetails = `
-      <h2>Connect to OpenClaw</h2>
-      <table>
-        <tr><td><strong>WebSocket URL</strong></td><td><code>${wsUrl}</code></td></tr>
-        <tr><td><strong>Gateway Token</strong></td><td>${tokenDisplay}</td></tr>
-      </table>
-      <p>Copy the token above, then paste it in the Control UI settings.</p>
+      <h2>Step 1: Copy Your Token</h2>
+      <div class="token-box">
+        ${tokenDisplay}
+      </div>
+      
+      <h2>Step 2: Open Control UI & Paste Token</h2>
+      <p>Click the button below. You'll see a settings page like this:</p>
+      <img src="/public/control-ui-settings.png" alt="Control UI Settings" class="screenshot" />
+      <p class="instruction">Paste your token into the <strong>Gateway Token</strong> field (highlighted in red above), then click <strong>Connect</strong>.</p>
+      
       <a class="button" href="/__openclaw__/control/#/overview" target="_blank">Open Control UI Settings</a>
     `;
   }
@@ -255,6 +265,33 @@ function getWelcomePage(gatewayHost) {
       display: inline;
     }
     .warning-text { color: #eab308; }
+    .token-box {
+      background: #1a1a1a;
+      padding: 16px 20px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      margin: 16px 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .token-box code {
+      flex: 1;
+      font-size: 0.85em;
+    }
+    .screenshot {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #333;
+      margin: 16px 0;
+    }
+    .instruction {
+      background: rgba(96, 165, 250, 0.1);
+      border: 1px solid rgba(96, 165, 250, 0.3);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
     .footer {
       margin-top: 48px;
       padding-top: 24px;
@@ -425,6 +462,32 @@ const server = http.createServer((req, res) => {
         error: hasApiKey ? null : 'No API key configured'
       }));
     }
+    return;
+  }
+
+  // Serve static files from /public
+  if (req.url.startsWith('/public/') && req.method === 'GET') {
+    const filePath = path.join(__dirname, req.url);
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.svg': 'image/svg+xml',
+      '.css': 'text/css',
+      '.js': 'application/javascript'
+    };
+    
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Not found');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+      res.end(data);
+    });
     return;
   }
 
