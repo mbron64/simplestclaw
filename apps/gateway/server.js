@@ -112,7 +112,7 @@ function validateEnvironment() {
  */
 function getWelcomePage(gatewayHost) {
   const wsUrl = `wss://${gatewayHost}`;
-  const token = process.env.OPENCLAW_GATEWAY_TOKEN ? '(configured)' : '(not set)';
+  const token = process.env.OPENCLAW_GATEWAY_TOKEN || null;
   
   // Determine status
   let statusClass, statusText, statusDetails;
@@ -137,13 +137,17 @@ function getWelcomePage(gatewayHost) {
   } else {
     statusClass = 'ok';
     statusText = 'Ready';
+    const tokenDisplay = token 
+      ? `<code id="token" class="token">${token}</code>
+         <button onclick="navigator.clipboard.writeText('${token}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)" class="copy-btn">Copy</button>`
+      : '<span class="warning-text">Not configured</span>';
     statusDetails = `
       <h2>Connect to OpenClaw</h2>
       <table>
         <tr><td><strong>WebSocket URL</strong></td><td><code>${wsUrl}</code></td></tr>
-        <tr><td><strong>Gateway Token</strong></td><td>${token}</td></tr>
+        <tr><td><strong>Gateway Token</strong></td><td>${tokenDisplay}</td></tr>
       </table>
-      <p>Use these settings in your OpenClaw client or the Control UI below.</p>
+      <p>Copy the token above and paste it in the Control UI settings.</p>
       <a class="button" href="/__openclaw__/control/" target="_blank">Open Control UI</a>
     `;
   }
@@ -234,6 +238,23 @@ function getWelcomePage(gatewayHost) {
       transition: opacity 0.2s;
     }
     .button:hover { opacity: 0.9; color: #000; }
+    .copy-btn {
+      padding: 4px 10px;
+      background: #333;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      margin-left: 8px;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { background: #444; }
+    .token {
+      word-break: break-all;
+      display: inline;
+    }
+    .warning-text { color: #eab308; }
     .footer {
       margin-top: 48px;
       padding-top: 24px;
