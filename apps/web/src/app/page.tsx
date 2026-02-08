@@ -219,7 +219,7 @@ export default function Home() {
 
               <div className="mt-8 p-5 rounded-xl bg-white/[0.02] border border-white/5">
                 <p className="text-[13px] text-white/40 mb-1">What's included:</p>
-                <p className="text-[13px] text-emerald-400 mb-4">100% private. Your data never leaves your computer.</p>
+                <p className="text-[13px] text-emerald-400 mb-4">Runs on your machine. Only API calls go to your chosen AI provider.</p>
                 <ul className="space-y-3 text-[14px]">
                   <li className="flex items-start gap-2">
                     <span className="text-white/30 mt-0.5">•</span>
