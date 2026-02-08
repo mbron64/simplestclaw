@@ -83,15 +83,15 @@ export default function Home() {
                   inactiveZone={0.01}
                   borderWidth={2}
                 />
-                <div className="flex items-center justify-between mb-6">
-                  <span className="text-[13px] font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
-                    Free
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-[22px] font-medium">Run locally</h2>
                   <svg className="w-5 h-5 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
                   </svg>
                 </div>
-                <h2 className="text-[22px] font-medium mb-2">Run locally</h2>
+                <span className="inline-block text-[13px] font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 mb-4">
+                  Free
+                </span>
                 <p className="text-[15px] text-white/50 leading-relaxed">
                   Download the open source desktop app. Everything runs on your machine. Your data never leaves.
                 </p>
@@ -116,15 +116,15 @@ export default function Home() {
                   inactiveZone={0.01}
                   borderWidth={2}
                 />
-                <div className="flex items-center justify-between mb-6">
-                  <span className="text-[13px] font-medium px-2.5 py-1 rounded-full bg-white/5 text-white/60">
-                    Via Railway
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-[22px] font-medium">Run in the cloud</h2>
                   <svg className="w-5 h-5 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
                   </svg>
                 </div>
-                <h2 className="text-[22px] font-medium mb-2">Run in the cloud</h2>
+                <span className="inline-block text-[13px] font-medium px-2.5 py-1 rounded-full bg-white/5 text-white/60 mb-4">
+                  Via Railway
+                </span>
                 <p className="text-[15px] text-white/50 leading-relaxed">
                   One-click deploy. Runs 24/7, accessible from any device.
                 </p>
