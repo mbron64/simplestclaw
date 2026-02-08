@@ -3,11 +3,46 @@ import {
   type Message,
   createOpenClawClient,
 } from '@simplestclaw/openclaw-client';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useAppStore } from '../lib/store';
 import { tauri } from '../lib/tauri';
+
+// Error Toast Component
+function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 8000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
+        <span className="text-[14px] text-red-400">{message}</span>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-red-400/60 hover:text-red-400 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Get user-friendly error message
+function getErrorMessage(error: unknown): string {
+  const errorStr = String(error);
+  if (errorStr.includes('timed out') || errorStr.includes('timeout')) {
+    return 'Response timed out. The AI might be overloaded - please try again.';
+  }
+  if (errorStr.includes('not connected') || errorStr.includes('disconnected')) {
+    return 'Connection lost. Reconnecting...';
+  }
+  return `Error: ${errorStr.replace(/^Error:\s*/i, '')}`;
+}
 
 export function Chat() {
   const { gatewayStatus, setScreen, addActivityLog } = useAppStore();
@@ -15,6 +50,7 @@ export function Chat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [error, setError] = useState<string | null>(null);
 
   const clientRef = useRef<ReturnType<typeof createOpenClawClient> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -152,18 +188,23 @@ export function Chat() {
     setInput('');
     setIsLoading(true);
 
+    // Capture input for logging since we clear it immediately
+    const messageContent = input;
+
     try {
-      await clientRef.current?.sendMessage(input);
+      await clientRef.current?.sendMessage(messageContent);
       addActivityLog({
         operationType: 'api_call',
-        details: `Message sent (${input.length} chars)`,
+        details: `Message sent (${messageContent.length} chars)`,
         status: 'success',
       });
       tauri
-        .addActivityEntry('api_call', `Message sent (${input.length} chars)`, 'success')
+        .addActivityEntry('api_call', `Message sent (${messageContent.length} chars)`, 'success')
         .catch(() => {});
     } catch (err) {
       console.error('Failed to send message:', err);
+      const errorMsg = getErrorMessage(err);
+      setError(errorMsg);
       addActivityLog({
         operationType: 'api_call',
         details: `Failed to send message: ${err}`,
@@ -189,8 +230,13 @@ export function Chat() {
     }
   };
 
+  const dismissError = useCallback(() => setError(null), []);
+
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a] text-[#fafafa] antialiased">
+      {/* Error Toast */}
+      {error && <ErrorToast message={error} onDismiss={dismissError} />}
+
       {/* Header - minimal, ambient */}
       <header className="flex items-center justify-between px-6 h-14 border-b border-white/5">
         <div className="flex items-center gap-3">
