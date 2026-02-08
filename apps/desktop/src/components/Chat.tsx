@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, AlertCircle, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { createOpenClawClient, type Message, type ConnectionState } from '@simplestclaw/openclaw-client';
 import { useAppStore } from '../lib/store';
@@ -11,6 +11,7 @@ export function Chat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [error, setError] = useState<string | null>(null);
   
   const clientRef = useRef<ReturnType<typeof createOpenClawClient> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -25,6 +26,14 @@ export function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Auto-dismiss error after 8 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   useEffect(() => {
     console.log('[Chat] useEffect triggered, gatewayUrl:', gatewayUrl, 'gatewayToken:', gatewayToken?.substring(0, 10) + '...');
@@ -118,6 +127,9 @@ export function Chat() {
     e.preventDefault();
     if (!input.trim() || isLoading || connectionState !== 'connected') return;
 
+    // Clear any previous error
+    setError(null);
+
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       role: 'user',
@@ -125,20 +137,32 @@ export function Chat() {
       timestamp: Date.now(),
     };
 
+    const messageContent = input;
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
-      await clientRef.current?.sendMessage(input);
+      await clientRef.current?.sendMessage(messageContent);
       addActivityLog({
         operationType: 'api_call',
-        details: `Message sent (${input.length} chars)`,
+        details: `Message sent (${messageContent.length} chars)`,
         status: 'success',
       });
-      tauri.addActivityEntry('api_call', `Message sent (${input.length} chars)`, 'success').catch(() => {});
+      tauri.addActivityEntry('api_call', `Message sent (${messageContent.length} chars)`, 'success').catch(() => {});
     } catch (err) {
       console.error('Failed to send message:', err);
+      
+      // Show user-friendly error message
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes('timed out')) {
+        setError('Response timed out. The AI might be overloaded - please try again.');
+      } else if (errorMessage.includes('Not connected')) {
+        setError('Connection lost. Reconnecting...');
+      } else {
+        setError(`Failed to send: ${errorMessage}`);
+      }
+      
       addActivityLog({
         operationType: 'api_call',
         details: `Failed to send message: ${err}`,
@@ -161,6 +185,23 @@ export function Chat() {
 
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a] text-[#fafafa] antialiased">
+      {/* Error Toast */}
+      {error && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 max-w-md">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="text-[13px]">{error}</span>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="ml-auto text-red-400/60 hover:text-red-400 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header - minimal, ambient */}
       <header className="flex items-center justify-between px-6 h-14 border-b border-white/5">
         <div className="flex items-center gap-3">
