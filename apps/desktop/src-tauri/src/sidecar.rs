@@ -67,6 +67,9 @@ impl SidecarManager {
     /// Uses the bundled Node.js runtime so users don't need to install
     /// anything. On first launch, the runtime is automatically downloaded.
     pub fn start(&self, _app: &AppHandle) -> Result<GatewayInfo, String> {
+        // First, clean up any orphaned processes from previous runs
+        kill_orphaned_gateway_processes();
+        
         let mut state = self.state.lock().map_err(|e| e.to_string())?;
 
         // Check if already running
@@ -129,8 +132,8 @@ impl SidecarManager {
 
         // Spawn npx openclaw gateway
         // npx will download and cache openclaw automatically
-        let mut child = Command::new(&npx_cmd)
-            .args([
+        let mut cmd = Command::new(&npx_cmd);
+        cmd.args([
                 "--yes",  // Auto-confirm package installation
                 "openclaw",
                 "gateway",
@@ -145,8 +148,16 @@ impl SidecarManager {
             .env("OPENCLAW_GATEWAY_TOKEN", &token)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .stderr(Stdio::piped());
+        
+        // On Unix, create a new process group so we can kill all children
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            cmd.process_group(0);
+        }
+        
+        let mut child = cmd.spawn()
             .map_err(|e| format!("Failed to start gateway: {}", e))?;
 
         let info = GatewayInfo {
@@ -209,12 +220,18 @@ impl SidecarManager {
         let mut state = self.state.lock().map_err(|e| e.to_string())?;
 
         if let Some(ref mut child) = state.child {
-            child.kill().map_err(|e| format!("Failed to stop: {}", e))?;
-            let _ = child.wait();
+            println!("[openclaw] Stopping gateway...");
+            
+            // Kill the process and all its children
+            kill_process_tree(child);
+            
             println!("[openclaw] Gateway stopped");
         }
         state.child = None;
         state.info = None;
+
+        // Also kill any orphaned openclaw processes
+        kill_orphaned_gateway_processes();
 
         Ok(())
     }
@@ -373,6 +390,82 @@ fn find_system_npx() -> Option<String> {
         }
 
         None
+    }
+}
+
+/// Kill a process and all its children
+fn kill_process_tree(child: &mut Child) {
+    let pid = child.id();
+    
+    #[cfg(unix)]
+    {
+        // On Unix, kill the process group
+        // First try SIGTERM for graceful shutdown
+        unsafe {
+            libc::kill(-(pid as i32), libc::SIGTERM);
+        }
+        
+        // Give it a moment to shut down
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        
+        // Then SIGKILL to make sure it's dead
+        unsafe {
+            libc::kill(-(pid as i32), libc::SIGKILL);
+        }
+    }
+    
+    #[cfg(windows)]
+    {
+        // On Windows, use taskkill with /T to kill child processes
+        let _ = Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .output();
+    }
+    
+    // Also kill via the standard method
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Kill any orphaned openclaw gateway processes from previous runs
+pub fn kill_orphaned_gateway_processes() {
+    #[cfg(unix)]
+    {
+        // Find and kill processes listening on our gateway port
+        let output = Command::new("lsof")
+            .args(["-ti", ":18789"])
+            .output();
+        
+        if let Ok(output) = output {
+            if output.status.success() {
+                let pids = String::from_utf8_lossy(&output.stdout);
+                for pid in pids.lines() {
+                    if let Ok(pid_num) = pid.trim().parse::<i32>() {
+                        println!("[openclaw] Killing orphaned process: {}", pid_num);
+                        unsafe {
+                            libc::kill(pid_num, libc::SIGKILL);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Also kill any openclaw-gateway processes
+        let _ = Command::new("pkill")
+            .args(["-9", "-f", "openclaw-gateway"])
+            .output();
+        
+        let _ = Command::new("pkill")
+            .args(["-9", "-f", "openclaw gateway"])
+            .output();
+    }
+    
+    #[cfg(windows)]
+    {
+        // On Windows, kill by process name
+        let _ = Command::new("taskkill")
+            .args(["/F", "/IM", "openclaw*"])
+            .output();
     }
 }
 

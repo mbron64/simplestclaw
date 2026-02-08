@@ -3,11 +3,16 @@ pub mod runtime;
 mod sidecar;
 
 use runtime::RuntimeManager;
-use sidecar::SidecarManager;
+use sidecar::{SidecarManager, kill_orphaned_gateway_processes};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Clean up any orphaned gateway processes from previous runs
+    // This handles cases where the app crashed or was force-quit
+    println!("[startup] Cleaning up any orphaned gateway processes...");
+    kill_orphaned_gateway_processes();
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
@@ -33,11 +38,15 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Stop the gateway when the window is closed
-            if let tauri::WindowEvent::Destroyed = event {
-                if let Some(manager) = window.app_handle().try_state::<SidecarManager>() {
-                    let _ = manager.stop();
+            // Stop the gateway when the window is closed or destroyed
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
+                    println!("[window] Window closing, stopping gateway...");
+                    if let Some(manager) = window.app_handle().try_state::<SidecarManager>() {
+                        let _ = manager.stop();
+                    }
                 }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![

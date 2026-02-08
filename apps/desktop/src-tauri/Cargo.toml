@@ -21,6 +21,7 @@ tar = "0.4"
 zip = "2"
 sha2 = "0.10"
 hex = "0.4"
+libc = "0.2.180"
 
 [lib]
 name = "simplestclaw_desktop"
