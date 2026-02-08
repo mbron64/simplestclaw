@@ -1,5 +1,4 @@
+# Pin to nixpkgs commit with Node 22.13.1
+# Required because OpenClaw needs Node >=22.12.0
 [phases.setup]
-nixPkgs = ["nodejs_22"]
-
-[variables]
-NODE_VERSION = "22"
+nixpkgsArchive = "51ad838b03a05b1de6f9f2a0fffecee64a9788ee"
