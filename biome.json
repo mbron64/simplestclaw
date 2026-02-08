@@ -19,8 +19,8 @@
         "noArrayIndexKey": "warn"
       },
       "a11y": {
-        "noSvgWithoutTitle": "off",
-        "useButtonType": "off"
+        "noSvgWithoutTitle": "warn",
+        "useButtonType": "warn"
       }
     }
   },
@@ -38,6 +38,6 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", ".next", "dist", ".turbo", "src-tauri/target"]
+    "ignore": ["node_modules", ".next", "dist", ".turbo", "src-tauri/target", "out"]
   }
 }

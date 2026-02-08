@@ -132,6 +132,7 @@ export function SecurityTab() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={handleOpenPrivacySettings}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-[13px] text-white/60 hover:text-white/80 transition-colors"
               >
@@ -153,6 +154,7 @@ export function SecurityTab() {
             </div>
             {activityLog.length > 0 && (
               <button
+                type="button"
                 onClick={handleClearLog}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-[13px] text-white/40 hover:text-white/60 transition-colors"
               >

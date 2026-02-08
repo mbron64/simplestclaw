@@ -26,6 +26,8 @@ export function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  // Scroll to bottom when messages change - messages is intentionally in deps to trigger scroll
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages is intentionally included to trigger scroll on new messages
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
@@ -133,7 +135,7 @@ export function Chat() {
         client.disconnect();
       }
     };
-  }, [gatewayUrl, gatewayToken]);
+  }, [gatewayUrl, gatewayToken, addActivityLog]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +198,7 @@ export function Chat() {
           <span className="text-[15px] font-medium tracking-tight">simplestclaw</span>
         </div>
         <button
+          type="button"
           onClick={() => setScreen('settings')}
           className="text-[13px] text-white/40 hover:text-white/70 transition-colors"
         >
