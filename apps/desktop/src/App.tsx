@@ -85,11 +85,22 @@ function App() {
       console.log('[App] Initializing...');
       setRuntimeStatus({ type: 'checking' });
 
+      // Check if upgrade is needed (old Node version installed)
+      const needsUpgrade = await tauri.needsRuntimeUpgrade();
+      if (needsUpgrade) {
+        console.log('[App] Node.js upgrade required, installing new version...');
+        setRuntimeStatus({ type: 'downloading', progress: 0 });
+        // Trigger install which will clean up old version and download new one
+        tauri.installRuntime().catch(err => {
+          console.error('[App] Runtime upgrade failed:', err);
+        });
+      }
+
       // Check initial runtime status
       const isReady = await pollRuntimeStatus();
 
       if (isReady) {
-        // Runtime already installed, start the app
+        // Runtime already installed with correct version, start the app
         await startApp();
       } else {
         // Start polling for download progress
