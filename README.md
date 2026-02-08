@@ -2,6 +2,8 @@
 
 The simplest way to set up and use OpenClaw. One click. No Telegram required.
 
+**🌐 [simplestclaw.com](https://simplestclaw.com)**
+
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/mbron64/simplestclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/mbron64/simplestclaw/actions/workflows/ci.yml)
 
@@ -14,7 +16,7 @@ simplestclaw makes it dead simple to get OpenClaw running - either on your own m
 1. **Local (Free)** - Download our desktop app, it bundles OpenClaw and runs on your machine
 2. **Hosted (~$5/mo)** - Click "Deploy on Railway" and get a cloud instance in 60 seconds
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-anthropic)
 
 ## Features
 
@@ -30,23 +32,27 @@ simplestclaw makes it dead simple to get OpenClaw running - either on your own m
 
 Download for your platform:
 
-- [macOS (Apple Silicon)](https://github.com/mbron64/simplestclaw/releases/latest)
-- [macOS (Intel)](https://github.com/mbron64/simplestclaw/releases/latest)
-- [Windows](https://github.com/mbron64/simplestclaw/releases/latest)
-- [Linux](https://github.com/mbron64/simplestclaw/releases/latest)
+- [macOS (Universal)](https://github.com/mbron64/simplestclaw/releases/latest)
+- Windows - Coming soon
+- Linux - Coming soon
 
 ### Option 2: Hosted (Railway)
 
-Deploy OpenClaw to the cloud in under 60 seconds:
+Deploy OpenClaw to the cloud in under 60 seconds. Choose your AI provider:
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw)
+| Provider | Deploy |
+|----------|--------|
+| Anthropic (Claude) | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-anthropic) |
+| OpenAI (GPT-4) | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openai) |
+| Google (Gemini) | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-gemini) |
+| OpenRouter | [![Deploy](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openrouter) |
 
 **Steps:**
-1. Click the button above
+1. Click the deploy button for your provider
 2. Sign in to Railway (or create account)
 3. Enter your API key when prompted
 4. Click "Deploy"
-5. Visit your gateway URL
+5. Copy your gateway token and connect
 
 **Requirements:**
 - Railway Hobby plan ($5/month) - free trial has memory limits
@@ -54,15 +60,15 @@ Deploy OpenClaw to the cloud in under 60 seconds:
 
 **Environment Variables:**
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | One of these | From [console.anthropic.com](https://console.anthropic.com) |
-| `OPENAI_API_KEY` | required | From [platform.openai.com](https://platform.openai.com) |
-| `GOOGLE_API_KEY` | | From [aistudio.google.com](https://aistudio.google.com) |
-| `OPENROUTER_API_KEY` | | From [openrouter.ai](https://openrouter.ai) |
-| `OPENCLAW_GATEWAY_TOKEN` | Auto | Auto-generated authentication token |
+| Variable | Description |
+|----------|-------------|
+| `ANTHROPIC_API_KEY` | From [console.anthropic.com](https://console.anthropic.com) |
+| `OPENAI_API_KEY` | From [platform.openai.com](https://platform.openai.com) |
+| `GOOGLE_API_KEY` | From [aistudio.google.com](https://aistudio.google.com) |
+| `OPENROUTER_API_KEY` | From [openrouter.ai](https://openrouter.ai) |
+| `OPENCLAW_GATEWAY_TOKEN` | Auto-generated (don't change) |
 
-You pay Railway directly. We never touch your money.
+*You only need one API key. You pay Railway directly - we never touch your money.*
 
 ## Development
 
@@ -83,9 +89,9 @@ pnpm dev
 ```
 simplestclaw/
 ├── apps/
-│   ├── web/           # Next.js web app (chat UI, dashboard)
+│   ├── web/           # Marketing website
 │   ├── gateway/       # Railway-deployable OpenClaw gateway
-│   └── desktop/       # Tauri desktop app (coming soon)
+│   └── desktop/       # Tauri desktop app (macOS)
 ├── packages/
 │   ├── ui/            # Shared UI components
 │   └── openclaw-client/  # OpenClaw Gateway WebSocket client
