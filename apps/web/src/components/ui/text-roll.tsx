@@ -56,6 +56,7 @@ export function TextRoll({
       {letters.map((letter, i) => {
         return (
           <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: index is correct here - letters can repeat (e.g., "hello" has two 'l's) and never reorder
             key={i}
             className="relative inline-block [perspective:10000px] [transform-style:preserve-3d] [width:auto]"
             aria-hidden="true"

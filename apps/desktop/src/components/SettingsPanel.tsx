@@ -15,6 +15,7 @@ export function SettingsPanel() {
       {/* Header */}
       <header className="flex items-center gap-4 px-6 h-14 border-b border-white/5">
         <button
+          type="button"
           onClick={() => setScreen('chat')}
           className="flex items-center gap-2 text-[13px] text-white/40 hover:text-white/70 transition-colors"
         >
@@ -28,6 +29,7 @@ export function SettingsPanel() {
       {/* Tab Navigation */}
       <div className="flex px-6 border-b border-white/5">
         <button
+          type="button"
           onClick={() => setActiveTab('general')}
           className={`px-4 py-3 text-[14px] font-medium border-b-2 transition-colors ${
             activeTab === 'general'
@@ -38,6 +40,7 @@ export function SettingsPanel() {
           General
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('security')}
           className={`px-4 py-3 text-[14px] font-medium border-b-2 transition-colors ${
             activeTab === 'security'
