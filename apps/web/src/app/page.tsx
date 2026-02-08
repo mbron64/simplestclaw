@@ -64,8 +64,8 @@ export default function Home() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/5">
         <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <img src="/logo.png" alt="SimplestClaw" className="w-5 h-5" />
+          <div className="flex items-center gap-1">
+            <img src="/logo.png" alt="SimplestClaw" className="w-5 h-5 -mt-px" />
             <span className="text-[15px] font-medium tracking-tight">simplestclaw</span>
           </div>
           <a
