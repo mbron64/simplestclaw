@@ -1,6 +1,6 @@
 import { AlertCircle, Check, Download, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useAppStore } from '../lib/store';
+import { type RuntimeStatus, useAppStore } from '../lib/store';
 import { type RuntimeStatus as TauriRuntimeStatus, tauri } from '../lib/tauri';
 
 type Provider = 'anthropic' | 'openai' | 'google' | 'openrouter' | null;
@@ -96,7 +96,7 @@ function RuntimeStatusDisplay({
   runtimeStatus,
   onRetry,
 }: {
-  runtimeStatus: ReturnType<typeof useAppStore>['runtimeStatus'];
+  runtimeStatus: RuntimeStatus;
   onRetry: () => void;
 }) {
   if (runtimeStatus.type === 'downloading') {
