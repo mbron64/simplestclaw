@@ -81,11 +81,13 @@ export default function Home() {
             <h1 className="text-[56px] sm:text-[72px] font-medium tracking-[-0.04em] leading-[1.05]">
               Deploy OpenClaw with{' '}
               <span className="text-emerald-400">0</span>{' '}
-              <CyclingText 
-                words={['stress', 'config', 'hassle', 'effort']} 
-                className="text-white"
-                interval={2000}
-              />
+              <span className="inline-block w-[6ch]">
+                <CyclingText 
+                  words={['stress', 'config', 'hassle', 'effort']} 
+                  className="text-white"
+                  interval={2000}
+                />
+              </span>
             </h1>
             <p className="mt-6 text-[19px] text-white/50 leading-relaxed max-w-xl mx-auto">
               The easiest way to run OpenClaw. No terminal, no Telegram bots, no server configuration.
