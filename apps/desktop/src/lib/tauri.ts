@@ -20,6 +20,13 @@ export interface RuntimeStatus {
   error: string | null;
 }
 
+export interface AppDataInfo {
+  configPath: string | null;
+  dataPath: string | null;
+  totalSizeBytes: number;
+  totalSizeFormatted: string;
+}
+
 export const tauri = {
   // Config
   async getConfig(): Promise<Config> {
@@ -93,5 +100,14 @@ export const tauri = {
       status,
       path: path || null,
     });
+  },
+
+  // App Data Management
+  async getAppDataInfo(): Promise<AppDataInfo> {
+    return invoke('get_app_data_info');
+  },
+
+  async deleteAllAppData(): Promise<void> {
+    return invoke('delete_all_app_data');
   },
 };

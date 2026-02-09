@@ -1,8 +1,13 @@
 import { getVersion } from '@tauri-apps/api/app';
-import { AlertCircle, Check, Eye, EyeOff, Loader2, LogOut } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AlertCircle, Check, Eye, EyeOff, Loader2, LogOut, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../lib/store';
-import { type Provider, type RuntimeStatus as TauriRuntimeStatus, tauri } from '../../lib/tauri';
+import {
+  type AppDataInfo,
+  type Provider,
+  type RuntimeStatus as TauriRuntimeStatus,
+  tauri,
+} from '../../lib/tauri';
 
 const PROVIDER_INFO: Record<Provider, { name: string; placeholder: string; url: string }> = {
   anthropic: {
@@ -351,6 +356,199 @@ function LogoutSection({
   );
 }
 
+// Confirmation Dialog Component (ARIA alertdialog pattern)
+function ConfirmDeleteDialog({
+  onConfirm,
+  onCancel,
+  isDeleting,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap and ESC key handling
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isDeleting) {
+        onCancel();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    dialogRef.current?.focus();
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel, isDeleting]);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+      <div
+        ref={dialogRef}
+        role="alertdialog"
+        aria-labelledby="confirm-delete-title"
+        aria-describedby="confirm-delete-desc"
+        tabIndex={-1}
+        className="bg-[#1a1a1a] rounded-xl p-6 max-w-md border border-white/10 shadow-2xl mx-4 focus:outline-none"
+      >
+        <h3 id="confirm-delete-title" className="text-[17px] font-medium text-white">
+          Delete all app data?
+        </h3>
+        <p id="confirm-delete-desc" className="text-[14px] text-white/60 mt-3 leading-relaxed">
+          This will permanently delete your API key, the Node.js runtime (~45MB), and all activity
+          history. You'll need to set up the app again from scratch.
+        </p>
+        <div className="flex gap-3 mt-6 justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="px-4 py-2 rounded-lg bg-white/10 text-[14px] font-medium text-white/80 hover:bg-white/20 transition-all disabled:opacity-50"
+          >
+            Keep Data
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="px-4 py-2 rounded-lg bg-red-500/20 text-[14px] font-medium text-red-400 hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete Everything'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Reset Data Section Component
+function ResetDataSection({
+  onResetComplete,
+}: {
+  onResetComplete: () => void;
+}) {
+  const { addActivityLog, setScreen, setGatewayStatus, setApiKeyConfigured } = useAppStore();
+  const [dataInfo, setDataInfo] = useState<AppDataInfo | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load data info on mount
+  useEffect(() => {
+    tauri.getAppDataInfo().then(setDataInfo).catch(console.error);
+  }, []);
+
+  const handleDeleteClick = useCallback(() => {
+    setShowConfirm(true);
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    if (!isDeleting) {
+      setShowConfirm(false);
+    }
+  }, [isDeleting]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      // Stop gateway first
+      try {
+        await tauri.stopGateway();
+      } catch {
+        // Ignore errors stopping gateway
+      }
+
+      // Delete all data
+      await tauri.deleteAllAppData();
+
+      addActivityLog({
+        operationType: 'gateway',
+        details: 'All app data deleted - reset to fresh state',
+        status: 'success',
+      });
+
+      // Reset app state
+      setGatewayStatus({ type: 'stopped' });
+      setApiKeyConfigured(false);
+
+      // Navigate to loading screen (which will go to onboarding)
+      setScreen('loading');
+      onResetComplete();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      console.error('Failed to delete app data:', err);
+    } finally {
+      setIsDeleting(false);
+      setShowConfirm(false);
+    }
+  }, [addActivityLog, setGatewayStatus, setApiKeyConfigured, setScreen, onResetComplete]);
+
+  return (
+    <>
+      <section className="pt-4 border-t border-white/5">
+        <h2 className="text-[15px] font-medium mb-1">Reset All Data</h2>
+        <p className="text-[13px] text-white/40 mb-4">
+          Delete all app data including API key, Node.js runtime, and activity history. Use this to
+          start fresh or before uninstalling.
+        </p>
+
+        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10 space-y-3 mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[14px] text-white/60">Data stored</span>
+            <span className="text-[14px] text-white/80 font-mono">
+              {dataInfo?.totalSizeFormatted ?? '...'}
+            </span>
+          </div>
+          {dataInfo?.configPath && (
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] text-white/60">Location</span>
+              <span
+                className="text-[12px] text-white/50 font-mono truncate max-w-[280px]"
+                title={dataInfo.configPath}
+              >
+                {dataInfo.configPath}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 text-[13px] text-red-400 mb-4">
+            <AlertCircle className="w-4 h-4" />
+            {error}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleDeleteClick}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-[14px] font-medium text-red-400 hover:bg-red-500/20 hover:border-red-500/30 transition-all"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete All Data
+        </button>
+      </section>
+
+      {showConfirm && (
+        <ConfirmDeleteDialog
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancel}
+          isDeleting={isDeleting}
+        />
+      )}
+    </>
+  );
+}
+
 // Main GeneralTab Component
 export function GeneralTab() {
   const { addActivityLog, setScreen, setGatewayStatus, setApiKeyConfigured } = useAppStore();
@@ -463,6 +661,11 @@ export function GeneralTab() {
     }
   };
 
+  const handleResetComplete = useCallback(() => {
+    // This callback is called after successful data deletion
+    // The screen will already be set to 'loading' which will transition to onboarding
+  }, []);
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="space-y-8">
@@ -486,6 +689,7 @@ export function GeneralTab() {
         <RuntimeStatusSection runtimeDetails={runtimeDetails} />
         <AppInfoSection version={appVersion} />
         <LogoutSection loggingOut={loggingOut} onLogout={handleLogout} />
+        <ResetDataSection onResetComplete={handleResetComplete} />
       </div>
     </div>
   );

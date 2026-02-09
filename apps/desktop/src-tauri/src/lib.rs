@@ -58,6 +58,8 @@ pub fn run() {
             config::set_api_key,
             config::set_provider,
             config::has_api_key,
+            config::get_app_data_info,
+            config::delete_all_app_data,
             // Gateway
             sidecar::start_gateway,
             sidecar::stop_gateway,
