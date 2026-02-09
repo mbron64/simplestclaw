@@ -386,49 +386,44 @@ function LogoutSection({
   );
 }
 
-// Confirmation Dialog Component (ARIA alertdialog pattern)
-function ConfirmDeleteDialog({
-  onConfirm,
+// Step 1: First Confirmation Dialog - "Delete all data?"
+function FirstConfirmDialog({
+  onProceed,
   onCancel,
-  isDeleting,
 }: {
-  onConfirm: () => void;
+  onProceed: () => void;
   onCancel: () => void;
-  isDeleting: boolean;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Focus trap and ESC key handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isDeleting) {
-        onCancel();
-      }
+      if (e.key === 'Escape') onCancel();
     };
     document.addEventListener('keydown', handleKeyDown);
     dialogRef.current?.focus();
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel, isDeleting]);
+  }, [onCancel]);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
       <div
         ref={dialogRef}
         role="alertdialog"
-        aria-labelledby="confirm-delete-title"
-        aria-describedby="confirm-delete-desc"
+        aria-labelledby="confirm-step1-title"
+        aria-describedby="confirm-step1-desc"
         tabIndex={-1}
         className="bg-[#1a1a1a] rounded-xl p-6 max-w-md border border-white/10 shadow-2xl mx-4 focus:outline-none"
       >
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-            <AlertCircle className="w-5 h-5 text-red-400" />
+            <Trash2 className="w-5 h-5 text-red-400" />
           </div>
-          <h3 id="confirm-delete-title" className="text-[17px] font-medium text-white">
-            Are you sure?
+          <h3 id="confirm-step1-title" className="text-[17px] font-medium text-white">
+            Delete all app data?
           </h3>
         </div>
-        <p id="confirm-delete-desc" className="text-[14px] text-white/60 leading-relaxed">
+        <p id="confirm-step1-desc" className="text-[14px] text-white/60 leading-relaxed">
           This will <span className="text-red-400 font-medium">permanently delete</span> all app
           data including:
         </p>
@@ -453,16 +448,80 @@ function ConfirmDeleteDialog({
           <button
             type="button"
             onClick={onCancel}
-            disabled={isDeleting}
-            className="px-4 py-2 rounded-lg bg-white/10 text-[14px] font-medium text-white/80 hover:bg-white/20 transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-white/10 text-[14px] font-medium text-white/80 hover:bg-white/20 transition-all"
           >
             Cancel
           </button>
           <button
             type="button"
+            onClick={onProceed}
+            className="px-4 py-2 rounded-lg bg-red-500/20 text-[14px] font-medium text-red-400 hover:bg-red-500/30 transition-all"
+          >
+            Delete Everything
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Step 2: Final Confirmation Dialog - "Are you sure?"
+function FinalConfirmDialog({
+  onConfirm,
+  onGoBack,
+  isDeleting,
+}: {
+  onConfirm: () => void;
+  onGoBack: () => void;
+  isDeleting: boolean;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isDeleting) onGoBack();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    dialogRef.current?.focus();
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onGoBack, isDeleting]);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+      <div
+        ref={dialogRef}
+        role="alertdialog"
+        aria-labelledby="confirm-step2-title"
+        aria-describedby="confirm-step2-desc"
+        tabIndex={-1}
+        className="bg-[#1a1a1a] rounded-xl p-6 max-w-md border border-white/10 shadow-2xl mx-4 focus:outline-none"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-500/30 flex items-center justify-center">
+            <AlertCircle className="w-5 h-5 text-red-400" />
+          </div>
+          <h3 id="confirm-step2-title" className="text-[17px] font-medium text-white">
+            Are you sure?
+          </h3>
+        </div>
+        <p id="confirm-step2-desc" className="text-[14px] text-white/60 leading-relaxed">
+          This action <span className="text-red-400 font-medium">cannot be undone</span>. All your
+          data will be permanently deleted.
+        </p>
+        <div className="flex gap-3 mt-6 justify-end">
+          <button
+            type="button"
+            onClick={onGoBack}
+            disabled={isDeleting}
+            className="px-4 py-2 rounded-lg bg-white/10 text-[14px] font-medium text-white/80 hover:bg-white/20 transition-all disabled:opacity-50"
+          >
+            Go Back
+          </button>
+          <button
+            type="button"
             onClick={onConfirm}
             disabled={isDeleting}
-            className="px-4 py-2 rounded-lg bg-red-500/20 text-[14px] font-medium text-red-400 hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 rounded-lg bg-red-500 text-[14px] font-medium text-white hover:bg-red-600 transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isDeleting ? (
               <>
@@ -470,7 +529,7 @@ function ConfirmDeleteDialog({
                 Deleting...
               </>
             ) : (
-              'Yes, Delete Everything'
+              "Yes, I'm Sure"
             )}
           </button>
         </div>
@@ -480,6 +539,8 @@ function ConfirmDeleteDialog({
 }
 
 // Reset Data Section Component
+type ConfirmStep = 'none' | 'first' | 'final';
+
 function ResetDataSection({
   onResetComplete,
 }: {
@@ -487,7 +548,7 @@ function ResetDataSection({
 }) {
   const { addActivityLog, setScreen, setGatewayStatus, setApiKeyConfigured } = useAppStore();
   const [dataInfo, setDataInfo] = useState<AppDataInfo | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<ConfirmStep>('none');
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -497,12 +558,20 @@ function ResetDataSection({
   }, []);
 
   const handleDeleteClick = useCallback(() => {
-    setShowConfirm(true);
+    setConfirmStep('first');
+  }, []);
+
+  const handleProceedToFinal = useCallback(() => {
+    setConfirmStep('final');
+  }, []);
+
+  const handleGoBack = useCallback(() => {
+    setConfirmStep('first');
   }, []);
 
   const handleCancel = useCallback(() => {
     if (!isDeleting) {
-      setShowConfirm(false);
+      setConfirmStep('none');
     }
   }, [isDeleting]);
 
@@ -540,7 +609,7 @@ function ResetDataSection({
       console.error('Failed to delete app data:', err);
     } finally {
       setIsDeleting(false);
-      setShowConfirm(false);
+      setConfirmStep('none');
     }
   }, [addActivityLog, setGatewayStatus, setApiKeyConfigured, setScreen, onResetComplete]);
 
@@ -590,10 +659,14 @@ function ResetDataSection({
         </button>
       </section>
 
-      {showConfirm && (
-        <ConfirmDeleteDialog
+      {confirmStep === 'first' && (
+        <FirstConfirmDialog onProceed={handleProceedToFinal} onCancel={handleCancel} />
+      )}
+
+      {confirmStep === 'final' && (
+        <FinalConfirmDialog
           onConfirm={handleConfirmDelete}
-          onCancel={handleCancel}
+          onGoBack={handleGoBack}
           isDeleting={isDeleting}
         />
       )}
