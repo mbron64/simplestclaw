@@ -20,7 +20,7 @@ const GITHUB_REPO = 'mbron64/simplestclaw';
 const APP_VERSION = '0.2.7';
 
 const getDownloadUrl = (platform: 'macos' | 'windows' | 'linux') => {
-  const baseUrl = `https://github.com/${GITHUB_REPO}/releases/latest/download`;
+  const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/desktop-v${APP_VERSION}`;
   switch (platform) {
     case 'macos':
       return `${baseUrl}/simplestclaw_${APP_VERSION}_universal.dmg`;
