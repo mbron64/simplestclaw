@@ -1,9 +1,23 @@
 import { AlertCircle, Check, Download, Loader2 } from 'lucide-react';
+import type { GatewayStatus, RuntimeStatus } from '../lib/store';
 import { useAppStore } from '../lib/store';
 import { TextShimmer } from './ui/text-shimmer';
 
 type LoadingPhase = 'checking' | 'downloading' | 'starting' | 'ready' | 'error' | 'gateway-error';
 type StepStatus = 'pending' | 'active' | 'complete';
+
+// Type guard helpers
+function getErrorMessage(status: RuntimeStatus): string {
+  return status.type === 'error' ? status.message : 'Unknown error';
+}
+
+function getDownloadProgress(status: RuntimeStatus): number {
+  return status.type === 'downloading' ? status.progress : 0;
+}
+
+function getGatewayErrorMessage(status: GatewayStatus): string {
+  return status.type === 'error' ? status.message : 'Failed to start gateway';
+}
 
 // Loading step with check or spinner
 function LoadingStep({ label, status }: { label: string; status: StepStatus }) {
@@ -58,13 +72,13 @@ export function Loading() {
 
   // Handle error states
   if (phase === 'error') {
-    return <ErrorDisplay title="Setup failed" message={runtimeStatus.message || 'Unknown error'} />;
+    return <ErrorDisplay title="Setup failed" message={getErrorMessage(runtimeStatus)} />;
   }
 
   if (phase === 'gateway-error') {
-    const errorMsg =
-      gatewayStatus.type === 'error' ? gatewayStatus.message : 'Failed to start gateway';
-    return <ErrorDisplay title="Connection failed" message={errorMsg} />;
+    return (
+      <ErrorDisplay title="Connection failed" message={getGatewayErrorMessage(gatewayStatus)} />
+    );
   }
 
   // Calculate progress
@@ -107,7 +121,7 @@ export function Loading() {
           {/* Download percentage */}
           {phase === 'downloading' && (
             <p className="text-[12px] text-white/40 text-center">
-              {Math.round(runtimeStatus.progress)}% complete
+              {Math.round(getDownloadProgress(runtimeStatus))}% complete
             </p>
           )}
         </div>
@@ -155,12 +169,9 @@ function getLoadingPhase(runtimeType: string, gatewayType: string): LoadingPhase
 }
 
 // Helper: Calculate progress percentage
-function calculateProgress(
-  phase: LoadingPhase,
-  runtimeStatus: { type: string; progress?: number }
-): number {
+function calculateProgress(phase: LoadingPhase, runtimeStatus: RuntimeStatus): number {
   if (phase === 'downloading') {
-    return Math.round((runtimeStatus.progress || 0) * 0.5);
+    return Math.round(getDownloadProgress(runtimeStatus) * 0.5);
   }
   if (phase === 'checking') return 5;
   if (phase === 'starting') return 70;
