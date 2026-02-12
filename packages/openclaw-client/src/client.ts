@@ -45,6 +45,7 @@ export class OpenClawClient {
     }
   >();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private tickTimer: ReturnType<typeof setInterval> | null = null;
   private sessionKey = 'agent:main:main'; // Default session key
 
   // Track pending chat messages by runId
@@ -118,6 +119,7 @@ export class OpenClawClient {
         };
 
         this.ws.onclose = (event) => {
+          this.stopTickTimer();
           this.setState('disconnected');
           this.handlers.onDisconnect?.(event.reason);
 
@@ -135,6 +137,7 @@ export class OpenClawClient {
   /** Disconnect from the Gateway */
   disconnect(): void {
     this.config.autoReconnect = false;
+    this.stopTickTimer();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -247,6 +250,9 @@ export class OpenClawClient {
       case 'tool.call.started':
       case 'tool.call.completed':
         this.handlers.onToolCall?.(event.payload as ToolCall);
+        break;
+      case 'tick':
+        // Gateway tick event -- no action needed, our tick timer handles keepalive
         break;
       default:
         console.log('[openclaw-client] Unhandled event:', event.event);
@@ -431,14 +437,20 @@ export class OpenClawClient {
           if (data.ok) {
             console.log('[openclaw-client] Connected successfully!');
 
-            // Extract session key from hello-ok payload
+            // Extract session key and tick policy from hello-ok payload
             const payload = data.payload as {
               snapshot?: { sessionDefaults?: { mainSessionKey?: string } };
+              policy?: { tickIntervalMs?: number };
             };
             if (payload?.snapshot?.sessionDefaults?.mainSessionKey) {
               this.sessionKey = payload.snapshot.sessionDefaults.mainSessionKey;
               console.log('[openclaw-client] Using session key:', this.sessionKey);
             }
+
+            // Start keepalive tick timer per gateway policy
+            const tickIntervalMs = payload?.policy?.tickIntervalMs ?? 15000;
+            console.log('[openclaw-client] Starting tick timer:', tickIntervalMs, 'ms');
+            this.startTickTimer(tickIntervalMs);
 
             this.setState('connected');
             this.handlers.onConnect?.();
@@ -450,9 +462,14 @@ export class OpenClawClient {
           }
           // Restore original handler
           ws.onmessage = originalOnMessage;
+        } else {
+          // Forward non-matching messages to the original handler
+          originalOnMessage?.call(ws, event);
         }
       } catch (err) {
         console.error('[openclaw-client] Failed to parse connect response:', err);
+        // Always restore original handler on error to prevent permanent breakage
+        ws.onmessage = originalOnMessage;
       }
     };
   }
@@ -469,6 +486,31 @@ export class OpenClawClient {
       this.reconnectTimer = null;
       this.connect().catch(console.error);
     }, this.config.reconnectDelay);
+  }
+
+  /** Start periodic tick requests to keep the gateway connection alive */
+  private startTickTimer(intervalMs: number): void {
+    this.stopTickTimer();
+    this.tickTimer = setInterval(() => {
+      if (this.ws && this.state === 'connected') {
+        const id = this.nextRequestId();
+        const tickReq: GatewayRequest = {
+          type: 'req',
+          id,
+          method: 'tick',
+          params: {},
+        };
+        this.ws.send(JSON.stringify(tickReq));
+      }
+    }, intervalMs);
+  }
+
+  /** Stop the periodic tick timer */
+  private stopTickTimer(): void {
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
   }
 
   private nextRequestId(): string {
