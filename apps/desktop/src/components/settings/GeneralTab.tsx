@@ -1,5 +1,5 @@
 import { getVersion } from '@tauri-apps/api/app';
-import { AlertCircle, Check, Eye, EyeOff, Loader2, LogOut, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, Copy, Eye, EyeOff, Loader2, LogOut, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../lib/store';
 import {
@@ -198,6 +198,76 @@ function ApiKeySection({
           {providerInfo.name}
         </a>
       </p>
+    </section>
+  );
+}
+
+// Gateway Token Section Component — displayed prominently at the top
+function GatewayTokenSection() {
+  const { gatewayStatus } = useAppStore();
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isRunning = gatewayStatus.type === 'running';
+  const token = isRunning ? gatewayStatus.info.token : '';
+
+  const handleCopy = useCallback(() => {
+    if (!token) return;
+    navigator.clipboard.writeText(token).then(() => {
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    });
+  }, [token]);
+
+  const handleFieldClick = useCallback(() => {
+    inputRef.current?.select();
+  }, []);
+
+  return (
+    <section>
+      <h2 className="text-[15px] font-medium mb-1">Gateway Token</h2>
+      <p className="text-[13px] text-white/40 mb-4">
+        Use this token to connect other apps to your gateway.
+      </p>
+
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={isRunning ? token : 'Gateway not running'}
+          readOnly
+          onClick={handleFieldClick}
+          className={`w-full px-4 py-3 pr-24 rounded-xl border text-[15px] font-mono transition-colors focus:outline-none select-all ${
+            isRunning
+              ? 'bg-white/[0.02] border-white/10 text-white/90 focus:border-white/20 cursor-text'
+              : 'bg-white/[0.01] border-white/5 text-white/25 cursor-default'
+          }`}
+        />
+        <button
+          type="button"
+          onClick={handleCopy}
+          disabled={!isRunning}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
+            tokenCopied
+              ? 'bg-emerald-500/20 text-emerald-400'
+              : isRunning
+                ? 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white'
+                : 'bg-white/5 text-white/20 cursor-not-allowed'
+          }`}
+        >
+          {tokenCopied ? (
+            <>
+              <Check className="w-3.5 h-3.5" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              Copy
+            </>
+          )}
+        </button>
+      </div>
     </section>
   );
 }
@@ -790,6 +860,7 @@ export function GeneralTab() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="space-y-8">
+        <GatewayTokenSection />
         <ProviderSection
           provider={provider}
           onProviderChange={handleProviderChange}
