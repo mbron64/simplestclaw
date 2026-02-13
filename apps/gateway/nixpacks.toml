@@ -2,3 +2,4 @@
 # Required because OpenClaw needs Node >=22.12.0
 [phases.setup]
 nixpkgsArchive = "51ad838b03a05b1de6f9f2a0fffecee64a9788ee"
+nixPkgs = ["nodejs_22", "npm-9_x"]
