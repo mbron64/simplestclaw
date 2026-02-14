@@ -156,7 +156,7 @@ function ModeSelectionCards({ onSelectMode }: { onSelectMode: (mode: DeploymentM
           onClick={() => onSelectMode('hosted')}
           className="mt-4 w-full text-center text-[13px] text-white/30 hover:text-white/60 transition-colors"
         >
-          or setup in cloud instead &rarr;
+          setup in cloud instead &rarr;
         </button>
       </div>
 
