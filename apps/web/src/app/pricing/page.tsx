@@ -11,11 +11,12 @@ const PLANS = [
     price: '$0',
     period: 'forever',
     description: 'Get started with OpenClaw for free.',
+    includes: null,
     features: [
       '10 messages per day',
-      'Claude Sonnet 4.5, GPT-5 Mini',
+      '2 models: Sonnet 4.5, GPT-5 Mini',
       'Runs locally on your machine',
-      'No account data stored on our servers',
+      'No data stored on our servers',
     ],
     cta: 'Download free',
     ctaLink: '/',
@@ -26,12 +27,12 @@ const PLANS = [
     name: 'Pro',
     price: '$20',
     period: '/month',
-    description: 'More capacity and access to 5 models.',
+    description: 'More capacity and access to more models.',
+    includes: 'Free',
     features: [
       '500 messages per day',
-      '5 models: Sonnet 4.5, Haiku 4.5, GPT-5 Mini, Gemini 3 Pro, Gemini 3 Flash',
+      '5 models: + Haiku 4.5, Gemini 3 Pro, Gemini 3 Flash',
       'Priority support',
-      'No account data stored on our servers',
     ],
     cta: 'Start free, upgrade anytime',
     ctaLink: '/settings?tab=billing',
@@ -42,12 +43,11 @@ const PLANS = [
     name: 'Ultra',
     price: '$200',
     period: '/month',
-    description: 'Maximum power. The best models with the highest limits.',
+    description: 'Maximum power for professionals.',
+    includes: 'Pro',
     features: [
       '2,000 messages per day',
-      'All 7 models including Claude Opus 4.5 and GPT-5.2',
-      'Most powerful models available',
-      'Priority support',
+      'All 7 models: + Opus 4.5, GPT-5.2',
       'Early access to new features',
     ],
     cta: 'Upgrade to Ultra',
@@ -112,6 +112,11 @@ function PlanCard({
       </div>
 
       <ul className="space-y-3 mb-8">
+        {plan.includes && (
+          <li className="text-[13px] text-white/40 font-medium pb-1">
+            Everything in {plan.includes}, plus:
+          </li>
+        )}
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5 text-[14px] text-white/70">
             <CheckIcon />
@@ -253,7 +258,7 @@ export default function PricingPage() {
           ))}
         </div>
         <p className="text-[13px] text-white/30 text-center mt-6">
-          You can also bring your own API key and use the app with no limits from us.
+          You can always BYOAK (bring your own API key).
         </p>
       </section>
 
