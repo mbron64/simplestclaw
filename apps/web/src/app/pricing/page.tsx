@@ -244,9 +244,6 @@ export default function PricingPage() {
           <h1 className="text-[48px] sm:text-[56px] font-medium tracking-[-0.03em] leading-[1.1]">
             Simple, transparent pricing
           </h1>
-          <p className="mt-4 text-[17px] text-white/50 max-w-lg mx-auto">
-            Start free. Upgrade when you need more. Or bring your own API key.
-          </p>
         </div>
       </section>
 
