@@ -1,5 +1,6 @@
 'use client';
 
+import { AuthNavLink } from '@/components/AuthNavLink';
 import { CyclingText } from '@/components/ui/cycling-text';
 import { GlowingEffect } from '@/components/ui/glowing-effect';
 import Link from 'next/link';
@@ -86,12 +87,7 @@ function Navbar() {
           >
             Pricing
           </Link>
-          <Link
-            href="/settings"
-            className="text-[13px] text-white/50 hover:text-white/80 transition-colors"
-          >
-            Settings
-          </Link>
+          <AuthNavLink className="text-[13px] text-white/50 hover:text-white/80 transition-colors" />
           <a
             href="https://github.com/mbron64/simplestclaw"
             target="_blank"

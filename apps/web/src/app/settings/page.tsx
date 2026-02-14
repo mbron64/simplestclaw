@@ -3,17 +3,9 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabase';
 
 const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || 'https://proxy.simplestclaw.com';
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables');
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 type Tab = 'general' | 'billing' | 'usage';
 
@@ -556,7 +548,7 @@ function SettingsPageContent() {
   // Fetch account data
   const fetchAccount = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSupabase().auth.getSession();
 
       if (!session) {
         // Not logged in -- redirect to login
@@ -595,7 +587,7 @@ function SettingsPageContent() {
   }, [fetchAccount]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await getSupabase().auth.signOut();
     router.push('/');
   };
 

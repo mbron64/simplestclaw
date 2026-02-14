@@ -1,5 +1,6 @@
 'use client';
 
+import { AuthNavLink } from '@/components/AuthNavLink';
 import { GlowingEffect } from '@/components/ui/glowing-effect';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -201,12 +202,7 @@ export default function PricingPage() {
             >
               Pricing
             </Link>
-            <Link
-              href="/settings"
-              className="text-[13px] text-white/60 hover:text-white/80 transition-colors"
-            >
-              Settings
-            </Link>
+            <AuthNavLink className="text-[13px] text-white/60 hover:text-white/80 transition-colors" />
             <a
               href="https://github.com/mbron64/simplestclaw"
               target="_blank"

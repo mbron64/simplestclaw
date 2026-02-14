@@ -3,17 +3,9 @@
 import Link from 'next/link';
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabase';
 
 const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || 'https://proxy.simplestclaw.com';
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables');
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 type AuthMode = 'login' | 'signup';
 
@@ -68,7 +60,7 @@ function AuthLoginPageContent() {
 
         if (code) {
           // PKCE flow -- exchange code for session
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error: exchangeError } = await getSupabase().auth.exchangeCodeForSession(code);
           if (exchangeError || !data.session) {
             setError(exchangeError?.message || 'Failed to complete sign-in.');
             setGoogleLoading(false);
@@ -78,7 +70,7 @@ function AuthLoginPageContent() {
           userEmail = data.session.user.email || '';
         } else if (accessTokenFromHash) {
           // Implicit flow -- token directly in hash
-          const { data: { user }, error: userError } = await supabase.auth.getUser(accessTokenFromHash);
+          const { data: { user }, error: userError } = await getSupabase().auth.getUser(accessTokenFromHash);
           if (userError || !user) {
             setError('Failed to complete sign-in.');
             setGoogleLoading(false);
@@ -137,7 +129,7 @@ function AuthLoginPageContent() {
       callbackUrl.searchParams.set('redirect', redirectTo);
     }
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await getSupabase().auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: callbackUrl.toString(),
@@ -184,7 +176,7 @@ function AuthLoginPageContent() {
       // Sign in via Supabase client so the session is stored in the browser
       // (needed for web-based flows like /settings)
       // For signup, the proxy already created the account, so we sign in to establish the session
-      await supabase.auth.signInWithPassword({
+      await getSupabase().auth.signInWithPassword({
         email: email.trim(),
         password,
       });
