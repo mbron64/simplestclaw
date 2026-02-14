@@ -502,7 +502,7 @@ function HostedFlowSection({
 
         <div className="mt-6 px-4 py-3 rounded-lg bg-yellow-500/[0.05] border border-yellow-500/10 text-center">
           <p className="text-[13px] text-yellow-400/70">
-            Note: Cloud deployments run in a sandboxed environment with no access to your local files or computer.
+            Note: Cloud deployments run in a sandboxed environment with no knowledge of your local files, tools, or computer.
           </p>
         </div>
 
