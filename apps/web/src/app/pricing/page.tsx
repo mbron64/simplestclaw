@@ -9,12 +9,12 @@ const PLANS = [
     name: 'Free',
     price: '$0',
     period: 'forever',
-    description: 'Get started with AI-powered coding assistance.',
+    description: 'Get started with OpenClaw for free.',
     features: [
       '10 messages per day',
       'Claude Sonnet 4.5, GPT-5 Mini',
       'Runs locally on your machine',
-      'Full privacy — data stays on your device',
+      'No account data stored on our servers',
     ],
     cta: 'Download free',
     ctaLink: '/',
@@ -30,7 +30,7 @@ const PLANS = [
       'All models: Claude Sonnet 4.5, Haiku 4.5, GPT-5 Mini, Gemini 3 Pro, Gemini 3 Flash',
       'Priority support',
       'Early access to new features',
-      'Full privacy — data stays on your device',
+      'No account data stored on our servers',
     ],
     cta: 'Start free, upgrade anytime',
     ctaLink: '/settings?tab=billing',
@@ -133,7 +133,7 @@ function FAQ() {
     },
     {
       q: 'Is my data private?',
-      a: 'Absolutely. simplestclaw runs entirely on your machine. In managed mode, your messages are sent to the AI provider (Anthropic, OpenAI, etc.) but never stored by us. In BYO mode, the connection is direct between you and the provider.',
+      a: 'simplestclaw runs on your machine and we never store your conversations. In managed mode, messages are routed through our proxy to the AI provider (Anthropic, OpenAI, etc.) but are not stored. In BYO mode, the connection is direct between you and the provider.',
     },
     {
       q: 'How do I cancel?',

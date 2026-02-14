@@ -247,7 +247,7 @@ function GeneralSection({ account }: { account: AccountData }) {
       <div>
         <h2 className="text-[18px] font-medium mb-1">Desktop App</h2>
         <p className="text-[14px] text-white/40 mb-5">
-          Download simplestclaw to get started with AI-powered coding.
+          Download simplestclaw to get started with OpenClaw.
         </p>
 
         <Link

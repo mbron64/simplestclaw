@@ -302,15 +302,15 @@ function LocalFlowSection({
             <li className="flex items-start gap-2">
               <span className="text-white/30 mt-0.5">•</span>
               <div>
-                <span className="text-white/70">Runs entirely on your machine</span>
-                <span className="text-white/40"> No data sent to external servers.</span>
+                <span className="text-white/70">Runs on your machine</span>
+                <span className="text-white/40"> The app and OpenClaw run locally. Messages are sent to your chosen AI provider.</span>
               </div>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-white/30 mt-0.5">•</span>
               <div>
-                <span className="text-white/70">Works offline</span>
-                <span className="text-white/40"> Once set up, no internet required.</span>
+                <span className="text-white/70">No data stored by us</span>
+                <span className="text-white/40"> We never see or store your conversations.</span>
               </div>
             </li>
           </ul>
@@ -589,7 +589,7 @@ function FeaturesSection() {
     },
     {
       title: 'Privacy-first',
-      desc: 'Data stays on your infrastructure. No third-party access.',
+      desc: 'We never store your conversations. Data goes directly to your chosen AI provider.',
     },
     { title: 'Always available', desc: 'Runs in background, ready when you need it.' },
   ];
