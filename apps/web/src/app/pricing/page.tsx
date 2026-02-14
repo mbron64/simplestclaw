@@ -27,10 +27,10 @@ const PLANS = [
     name: 'Pro',
     price: '$20',
     period: '/month',
-    description: 'More capacity and access to more models.',
+    description: 'More capacity and more models.',
     includes: 'Free',
     features: [
-      '500 messages per day',
+      '200 messages per day',
       '5 models: + Haiku 4.5, Gemini 3 Pro, Gemini 3 Flash',
       'Priority support',
     ],
@@ -41,12 +41,12 @@ const PLANS = [
   },
   {
     name: 'Ultra',
-    price: '$200',
+    price: '$150',
     period: '/month',
-    description: 'Maximum power for professionals.',
+    description: 'Max power.',
     includes: 'Pro',
     features: [
-      '2,000 messages per day',
+      '2,500 messages per day',
       'All 7 models: + Opus 4.5, GPT-5.2',
       'Early access to new features',
     ],
