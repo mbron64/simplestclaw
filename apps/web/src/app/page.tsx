@@ -79,24 +79,32 @@ function Navbar() {
           <img src="/logo.png" alt="SimplestClaw" className="w-5 h-5 mt-0.5" />
           <span className="text-[15px] font-medium tracking-tight">simplestclaw</span>
         </div>
-        <a
-          href="https://github.com/mbron64/simplestclaw"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-md border border-white/20 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/30 transition-all"
-        >
-          <span className="text-white/70 group-hover:text-white/90 transition-colors">
-            Star on GitHub
-          </span>
-          <svg
-            className="w-4 h-4 text-white/60 group-hover:text-yellow-400 transition-colors"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
+        <div className="flex items-center gap-5">
+          <Link
+            href="/pricing"
+            className="text-[13px] text-white/50 hover:text-white/80 transition-colors"
           >
-            <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z" />
-          </svg>
-        </a>
+            Pricing
+          </Link>
+          <a
+            href="https://github.com/mbron64/simplestclaw"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-md border border-white/20 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/30 transition-all"
+          >
+            <span className="text-white/70 group-hover:text-white/90 transition-colors">
+              Star on GitHub
+            </span>
+            <svg
+              className="w-4 h-4 text-white/60 group-hover:text-yellow-400 transition-colors"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z" />
+            </svg>
+          </a>
+        </div>
       </div>
     </nav>
   );

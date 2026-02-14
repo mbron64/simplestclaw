@@ -14,6 +14,7 @@
     "@simplestclaw/openclaw-client": "workspace:*",
     "@simplestclaw/ui": "workspace:*",
     "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/plugin-deep-link": "^2.4.7",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.2.0",
     "clsx": "^2.1.1",

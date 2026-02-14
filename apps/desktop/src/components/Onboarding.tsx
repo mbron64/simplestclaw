@@ -1,8 +1,13 @@
-import { AlertCircle, Check, Download, Loader2 } from 'lucide-react';
+import { listen } from '@tauri-apps/api/event';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
+import { AlertCircle, ArrowLeft, Check, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type RuntimeStatus, useAppStore } from '../lib/store';
 import { type RuntimeStatus as TauriRuntimeStatus, tauri } from '../lib/tauri';
 
+const AUTH_URL = 'https://simplestclaw.com/auth/login';
+
+type OnboardingPath = 'choice' | 'managed-signin' | 'byo';
 type Provider = 'anthropic' | 'openai' | 'google' | 'openrouter' | null;
 
 const PROVIDER_INFO: Record<
@@ -195,11 +200,171 @@ function ContinueButton({
   );
 }
 
-// Main Onboarding Component
-export function Onboarding() {
+// ── Managed Mode: Browser-based Sign In ───────────────────────────────
+function ManagedSignIn({ onBack }: { onBack: () => void }) {
+  const { setGatewayStatus, setApiKeyConfigured, setScreen } = useAppStore();
+  const [waiting, setWaiting] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualKey, setManualKey] = useState('');
+  const [manualEmail, setManualEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const completeSignIn = async (key: string, email: string) => {
+    setSaving(true);
+    try {
+      await tauri.setApiMode('managed');
+      await tauri.setLicenseKey(key);
+      await tauri.setUserEmail(email);
+      await tauri.setSelectedModel('claude-sonnet-4-20250514');
+      setApiKeyConfigured(true);
+
+      setGatewayStatus({ type: 'starting' });
+      const info = await tauri.startGateway();
+      setGatewayStatus({ type: 'running', info });
+      setScreen('chat');
+    } catch (err) {
+      console.error('Failed to complete sign in:', err);
+      setSaving(false);
+      setWaiting(false);
+    }
+  };
+
+  // Listen for the auth-complete event from the deep link handler
+  useEffect(() => {
+    const unlisten = listen<{ key: string; email: string }>('auth-complete', async (event) => {
+      const { key, email } = event.payload;
+      await completeSignIn(key, email);
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [setApiKeyConfigured, setGatewayStatus, setScreen]);
+
+  const handleSignIn = async () => {
+    setWaiting(true);
+    try {
+      await shellOpen(AUTH_URL);
+    } catch (err) {
+      console.error('Failed to open browser:', err);
+      setWaiting(false);
+    }
+  };
+
+  const handleManualSubmit = async () => {
+    if (!manualKey.trim()) return;
+    await completeSignIn(manualKey.trim(), manualEmail.trim());
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="fixed top-6 left-6 flex items-center gap-1.5 text-[13px] text-white/40 hover:text-white/60 transition-colors z-10"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back
+      </button>
+
+      <div className="text-center mb-8">
+        <h1 className="text-[28px] font-medium tracking-[-0.02em] mb-3">Sign in</h1>
+        <p className="text-[15px] text-white/50 leading-relaxed">
+          Sign in or create an account in your browser.
+        </p>
+      </div>
+
+      {!waiting ? (
+        <button
+          type="button"
+          onClick={handleSignIn}
+          className="w-full py-3 rounded-xl bg-white text-black text-[15px] font-medium hover:bg-white/90 transition-all flex items-center justify-center gap-2"
+        >
+          Continue in browser
+          <ExternalLink className="w-4 h-4" />
+        </button>
+      ) : (
+        <div className="text-center space-y-4">
+          <div className="p-6 rounded-xl bg-white/[0.02] border border-white/10">
+            <Loader2 className="w-6 h-6 animate-spin text-white/40 mx-auto mb-3" />
+            <p className="text-[15px] text-white/70 mb-1">Waiting for sign in...</p>
+            <p className="text-[13px] text-white/40">
+              Complete sign-in in your browser. This page will update automatically.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSignIn}
+            className="text-[13px] text-white/40 hover:text-white/60 transition-colors underline underline-offset-4"
+          >
+            Open browser again
+          </button>
+
+          {/* Manual entry fallback */}
+          {!showManualEntry ? (
+            <button
+              type="button"
+              onClick={() => setShowManualEntry(true)}
+              className="text-[13px] text-white/30 hover:text-white/50 transition-colors underline underline-offset-4 block mx-auto"
+            >
+              Enter license key manually
+            </button>
+          ) : (
+            <div className="mt-4 p-5 rounded-xl bg-white/[0.02] border border-white/10 text-left space-y-3">
+              <p className="text-[13px] text-white/40">Paste the details from the sign-in page:</p>
+              <input
+                type="email"
+                value={manualEmail}
+                onChange={(e) => setManualEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full px-3 py-2 rounded-lg bg-white/[0.02] border border-white/10 text-[14px] placeholder-white/30 focus:outline-none focus:border-white/20 transition-colors"
+              />
+              <input
+                type="text"
+                value={manualKey}
+                onChange={(e) => setManualKey(e.target.value)}
+                placeholder="License key (sclw_...)"
+                className="w-full px-3 py-2 rounded-lg bg-white/[0.02] border border-white/10 text-[14px] placeholder-white/30 focus:outline-none focus:border-white/20 font-mono transition-colors"
+              />
+              <button
+                type="button"
+                onClick={handleManualSubmit}
+                disabled={!manualKey.trim() || saving}
+                className={`w-full py-2.5 rounded-lg text-[14px] font-medium transition-all flex items-center justify-center gap-2 ${
+                  manualKey.trim() && !saving
+                    ? 'bg-white text-black hover:bg-white/90'
+                    : 'bg-white/5 text-white/30 cursor-not-allowed'
+                }`}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  'Connect'
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── BYO Key Flow (existing, extracted) ────────────────────────────────
+function ByoKeyFlow({
+  onBack,
+  runtimeStatus,
+  runtimeDetails,
+}: {
+  onBack: () => void;
+  runtimeStatus: RuntimeStatus;
+  runtimeDetails: TauriRuntimeStatus | null;
+}) {
   const {
     error,
-    runtimeStatus,
     setScreen,
     setGatewayStatus,
     setApiKeyConfigured,
@@ -209,21 +374,7 @@ export function Onboarding() {
   const [selectedProvider, setSelectedProvider] = useState<Provider>(null);
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
-  const [runtimeDetails, setRuntimeDetails] = useState<TauriRuntimeStatus | null>(null);
-
-  useEffect(() => {
-    const fetchRuntime = async () => {
-      try {
-        const status = await tauri.getRuntimeStatus();
-        setRuntimeDetails(status);
-      } catch (err) {
-        console.error('Failed to get runtime status:', err);
-      }
-    };
-    fetchRuntime();
-    const interval = setInterval(fetchRuntime, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  const runtimeReady = runtimeStatus.type === 'installed';
 
   const handleInstallRuntime = async () => {
     setRuntimeStatus({ type: 'downloading', progress: 0 });
@@ -247,7 +398,9 @@ export function Onboarding() {
     setError(null);
 
     try {
+      await tauri.setApiMode('byo');
       await tauri.setApiKey(apiKey.trim());
+      await tauri.setProvider(selectedProvider);
       setApiKeyConfigured(true);
       setGatewayStatus({ type: 'starting' });
       const info = await tauri.startGateway();
@@ -262,114 +415,170 @@ export function Onboarding() {
     }
   };
 
-  const runtimeReady = runtimeStatus.type === 'installed';
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="fixed top-6 left-6 flex items-center gap-1.5 text-[13px] text-white/40 hover:text-white/60 transition-colors z-10"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back
+      </button>
+
+      <div className="text-center mb-8">
+        <h1 className="text-[28px] font-medium tracking-[-0.02em] mb-3">Use your own API key</h1>
+        <p className="text-[15px] text-white/50 leading-relaxed">
+          Your key stays on your computer. We never see it.
+        </p>
+      </div>
+
+      {/* Runtime status */}
+      {!runtimeReady && (
+        <div className="mb-6 p-5 rounded-xl bg-white/[0.02] border border-white/10">
+          <RuntimeStatusDisplay runtimeStatus={runtimeStatus} onRetry={handleInstallRuntime} />
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 p-5 rounded-xl bg-white/[0.02] border border-white/10">
+          <p className="text-[15px] text-white/70 mb-1">Something went wrong</p>
+          <p className="text-[13px] text-white/40">{error}</p>
+        </div>
+      )}
+
+      {/* Provider selection */}
+      <div className="mb-6">
+        <p className="text-[13px] text-white/40 mb-3">Step 1: Choose your AI provider</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(['anthropic', 'openai', 'google', 'openrouter'] as const).map((p) => (
+            <ProviderButton
+              key={p}
+              provider={p}
+              label={PROVIDER_INFO[p].name}
+              selected={selectedProvider === p}
+              disabled={!runtimeReady}
+              onSelect={() => setSelectedProvider(p)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* API key input */}
+      <div className="mb-6">
+        <p className="text-[13px] text-white/40 mb-3">Step 2: Enter your API key</p>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder={
+            selectedProvider
+              ? PROVIDER_INFO[selectedProvider].placeholder
+              : 'Select a provider first...'
+          }
+          className="w-full px-4 py-3 rounded-xl bg-white/[0.02] border border-white/10 text-[15px] placeholder-white/30 focus:outline-none focus:border-white/20 font-mono transition-colors"
+          disabled={saving || !runtimeReady || !selectedProvider}
+        />
+        {selectedProvider && (
+          <p className="mt-2 text-[12px] text-white/30">
+            Get your key from{' '}
+            <a
+              href={PROVIDER_INFO[selectedProvider].url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/50 hover:text-white/70 transition-colors underline"
+            >
+              {PROVIDER_INFO[selectedProvider].name}
+            </a>
+          </p>
+        )}
+      </div>
+
+      <ContinueButton
+        apiKey={apiKey}
+        selectedProvider={selectedProvider}
+        saving={saving}
+        runtimeReady={runtimeReady}
+        onClick={handleSave}
+      />
+
+      {runtimeReady && runtimeDetails && (
+        <p className="mt-6 text-[11px] text-white/20 text-center">
+          <Check className="w-3 h-3 inline mr-1 text-green-500/50" />
+          Node.js {runtimeDetails.version} ready
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Main Onboarding Component
+export function Onboarding() {
+  const { runtimeStatus } = useAppStore();
+  const [path, setPath] = useState<OnboardingPath>('choice');
+  const [runtimeDetails, setRuntimeDetails] = useState<TauriRuntimeStatus | null>(null);
+
+  useEffect(() => {
+    const fetchRuntime = async () => {
+      try {
+        const status = await tauri.getRuntimeStatus();
+        setRuntimeDetails(status);
+      } catch (err) {
+        console.error('Failed to get runtime status:', err);
+      }
+    };
+    fetchRuntime();
+    const interval = setInterval(fetchRuntime, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#0a0a0a] text-[#fafafa] antialiased p-8">
       <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-[28px] font-medium tracking-[-0.02em] mb-3">Set up OpenClaw</h1>
-          <p className="text-[15px] text-white/50 leading-relaxed">
-            Your key stays on your computer. We never see it.
-          </p>
-        </div>
+        {/* Choice screen */}
+        {path === 'choice' && (
+          <div>
+            <div className="text-center mb-10">
+              <h1 className="text-[28px] font-medium tracking-[-0.02em] mb-3">Welcome to simplestclaw</h1>
+              <p className="text-[15px] text-white/50 leading-relaxed">
+                Your AI assistant, running locally on your machine.
+              </p>
+            </div>
 
-        {/* Runtime status - only show if not ready */}
-        {!runtimeReady && (
-          <div className="mb-6 p-5 rounded-xl bg-white/[0.02] border border-white/10">
-            <RuntimeStatusDisplay runtimeStatus={runtimeStatus} onRetry={handleInstallRuntime} />
-          </div>
-        )}
+            {/* Primary: Sign in */}
+            <button
+              type="button"
+              onClick={() => setPath('managed-signin')}
+              className="w-full py-4 rounded-xl bg-white text-black text-[16px] font-medium hover:bg-white/90 transition-all mb-8 flex items-center justify-center gap-2"
+            >
+              Sign in
+            </button>
 
-        {/* Error */}
-        {error && (
-          <div className="mb-6 p-5 rounded-xl bg-white/[0.02] border border-white/10">
-            <p className="text-[15px] text-white/70 mb-1">Something went wrong</p>
-            <p className="text-[13px] text-white/40">{error}</p>
-          </div>
-        )}
-
-        {/* Step 1: Choose Provider */}
-        <div className="mb-6">
-          <p className="text-[13px] text-white/40 mb-3">Step 1: Choose your AI provider</p>
-          <div className="grid grid-cols-2 gap-2">
-            <ProviderButton
-              provider="anthropic"
-              label="Anthropic"
-              selected={selectedProvider === 'anthropic'}
-              disabled={!runtimeReady}
-              onSelect={() => setSelectedProvider('anthropic')}
-            />
-            <ProviderButton
-              provider="openai"
-              label="OpenAI"
-              selected={selectedProvider === 'openai'}
-              disabled={!runtimeReady}
-              onSelect={() => setSelectedProvider('openai')}
-            />
-            <ProviderButton
-              provider="google"
-              label="Gemini"
-              selected={selectedProvider === 'google'}
-              disabled={!runtimeReady}
-              onSelect={() => setSelectedProvider('google')}
-            />
-            <ProviderButton
-              provider="openrouter"
-              label="OpenRouter"
-              selected={selectedProvider === 'openrouter'}
-              disabled={!runtimeReady}
-              onSelect={() => setSelectedProvider('openrouter')}
-            />
-          </div>
-        </div>
-
-        {/* Step 2: Enter API Key */}
-        <div className="mb-6">
-          <p className="text-[13px] text-white/40 mb-3">Step 2: Enter your API key</p>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={
-              selectedProvider
-                ? PROVIDER_INFO[selectedProvider].placeholder
-                : 'Select a provider first...'
-            }
-            className="w-full px-4 py-3 rounded-xl bg-white/[0.02] border border-white/10 text-[15px] placeholder-white/30 focus:outline-none focus:border-white/20 font-mono transition-colors"
-            disabled={saving || !runtimeReady || !selectedProvider}
-          />
-          {selectedProvider && (
-            <p className="mt-2 text-[12px] text-white/30">
-              Get your key from{' '}
-              <a
-                href={PROVIDER_INFO[selectedProvider].url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white/50 hover:text-white/70 transition-colors underline"
+            {/* Secondary: BYO key */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setPath('byo')}
+                className="text-[14px] text-white/40 hover:text-white/60 transition-colors underline underline-offset-4"
               >
-                {PROVIDER_INFO[selectedProvider].name}
-              </a>
-            </p>
-          )}
-        </div>
+                I have my own API key
+              </button>
+            </div>
+          </div>
+        )}
 
-        {/* Continue Button */}
-        <ContinueButton
-          apiKey={apiKey}
-          selectedProvider={selectedProvider}
-          saving={saving}
-          runtimeReady={runtimeReady}
-          onClick={handleSave}
-        />
+        {/* Managed sign in (browser-based) */}
+        {path === 'managed-signin' && (
+          <ManagedSignIn onBack={() => setPath('choice')} />
+        )}
 
-        {/* Runtime info footer */}
-        {runtimeReady && runtimeDetails && (
-          <p className="mt-6 text-[11px] text-white/20 text-center">
-            <Check className="w-3 h-3 inline mr-1 text-green-500/50" />
-            Node.js {runtimeDetails.version} ready
-          </p>
+        {/* BYO key flow (existing behavior) */}
+        {path === 'byo' && (
+          <ByoKeyFlow
+            onBack={() => setPath('choice')}
+            runtimeStatus={runtimeStatus}
+            runtimeDetails={runtimeDetails}
+          />
         )}
       </div>
     </div>

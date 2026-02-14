@@ -1,13 +1,17 @@
 import { getVersion } from '@tauri-apps/api/app';
-import { AlertCircle, Check, Copy, Eye, EyeOff, Loader2, LogOut, Trash2 } from 'lucide-react';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
+import { AlertCircle, Check, Copy, CreditCard, Eye, EyeOff, ExternalLink, Loader2, LogOut, Mail, Trash2, User } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../lib/store';
 import {
+  type ApiMode,
   type AppDataInfo,
   type Provider,
   type RuntimeStatus as TauriRuntimeStatus,
   tauri,
 } from '../../lib/tauri';
+
+const PROXY_URL = 'https://proxy.simplestclaw.com';
 
 const PROVIDER_INFO: Record<Provider, { name: string; placeholder: string; url: string }> = {
   anthropic: {
@@ -745,6 +749,190 @@ function ResetDataSection() {
   );
 }
 
+// Account Section Component (managed mode only)
+function AccountSection({ apiMode }: { apiMode: ApiMode }) {
+  const [email, setEmail] = useState<string | null>(null);
+  const [plan, setPlan] = useState<string>('free');
+  const [usage, setUsage] = useState<{ messagesUsed: number; limit: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (apiMode !== 'managed') return;
+
+    const fetchAccountInfo = async () => {
+      try {
+        const config = await tauri.getConfig();
+        setEmail(config.userEmail);
+
+        // Fetch account details from proxy (with timeout so it doesn't hang)
+        if (config.licenseKey) {
+          try {
+            const res = await fetch(`${PROXY_URL}/auth/me`, {
+              headers: { 'Authorization': `Bearer ${config.licenseKey}` },
+              signal: AbortSignal.timeout(5000),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setPlan(data.subscription?.plan || 'free');
+              setUsage({
+                messagesUsed: data.usage?.totalMessages || 0,
+                limit: data.subscription?.plan === 'pro' ? 500 : 10,
+              });
+            }
+          } catch {
+            // Proxy not reachable -- show local data only
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch account info:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAccountInfo();
+  }, [apiMode]);
+
+  if (apiMode !== 'managed') return null;
+
+  const handleManageSubscription = async () => {
+    try {
+      const config = await tauri.getConfig();
+      if (config.licenseKey) {
+        // Try opening Stripe portal via proxy; fall back to website pricing page
+        const portalUrl = `${PROXY_URL}/billing/portal?license_key=${encodeURIComponent(config.licenseKey)}`;
+        try {
+          const res = await fetch(portalUrl, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+          if (res.ok || res.status === 302 || res.status === 303) {
+            shellOpen(portalUrl);
+            return;
+          }
+        } catch {
+          // Proxy not reachable, fall through
+        }
+      }
+      // Fallback: open the website pricing page
+      shellOpen('https://simplestclaw.com/pricing');
+    } catch (err) {
+      console.error('Failed to open billing portal:', err);
+      shellOpen('https://simplestclaw.com/pricing');
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="text-[15px] font-medium mb-1">Account</h2>
+      <p className="text-[13px] text-white/40 mb-4">Your simplestclaw account and subscription.</p>
+
+      <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10 space-y-3">
+        {loading ? (
+          <div className="flex items-center gap-2 text-[14px] text-white/40">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading...
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[14px] text-white/60">
+                <Mail className="w-4 h-4" />
+                Email
+              </span>
+              <span className="text-[14px] text-white/80">{email || 'Not set'}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[14px] text-white/60">
+                <CreditCard className="w-4 h-4" />
+                Plan
+              </span>
+              <span className={`text-[14px] font-medium ${plan === 'pro' ? 'text-blue-400' : 'text-white/80'}`}>
+                {plan === 'pro' ? 'Pro' : 'Free'}
+              </span>
+            </div>
+
+            {usage && (
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[14px] text-white/60">
+                  <User className="w-4 h-4" />
+                  Usage today
+                </span>
+                <span className="text-[14px] text-white/80">
+                  {usage.messagesUsed} / {usage.limit} messages
+                </span>
+              </div>
+            )}
+
+            <div className="pt-2 flex gap-2">
+              {plan === 'free' && (
+                <button
+                  type="button"
+                  onClick={() => shellOpen('https://simplestclaw.com/pricing')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[13px] font-medium text-blue-400 hover:bg-blue-500/20 transition-all"
+                >
+                  Upgrade to Pro
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleManageSubscription}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[13px] font-medium text-white/60 hover:bg-white/10 hover:text-white/80 transition-all"
+              >
+                Manage subscription
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// API Mode Toggle Section
+function ApiModeSection({
+  apiMode,
+  onModeChange,
+}: {
+  apiMode: ApiMode;
+  onModeChange: (mode: ApiMode) => void;
+}) {
+  return (
+    <section>
+      <h2 className="text-[15px] font-medium mb-1">API Mode</h2>
+      <p className="text-[13px] text-white/40 mb-4">
+        Choose between managed (we provide the API) or bring your own key.
+      </p>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onModeChange('managed')}
+          className={`px-4 py-3 rounded-xl border transition-all text-left ${
+            apiMode === 'managed'
+              ? 'bg-white/10 border-white/30'
+              : 'bg-white/[0.02] border-white/10 hover:bg-white/[0.05] hover:border-white/20'
+          }`}
+        >
+          <span className="text-[14px] text-white/80 block font-medium">Managed</span>
+          <span className="text-[12px] text-white/40 block mt-0.5">We handle the API keys</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onModeChange('byo')}
+          className={`px-4 py-3 rounded-xl border transition-all text-left ${
+            apiMode === 'byo'
+              ? 'bg-white/10 border-white/30'
+              : 'bg-white/[0.02] border-white/10 hover:bg-white/[0.05] hover:border-white/20'
+          }`}
+        >
+          <span className="text-[14px] text-white/80 block font-medium">Bring Your Own Key</span>
+          <span className="text-[12px] text-white/40 block mt-0.5">Use your own API key</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // Main GeneralTab Component
 export function GeneralTab() {
   const { addActivityLog, setScreen, setGatewayStatus, setApiKeyConfigured } = useAppStore();
@@ -757,6 +945,7 @@ export function GeneralTab() {
   const [runtimeDetails, setRuntimeDetails] = useState<TauriRuntimeStatus | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [appVersion, setAppVersion] = useState('...');
+  const [apiMode, setApiMode] = useState<ApiMode>('byo');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -767,6 +956,7 @@ export function GeneralTab() {
 
         const config = await tauri.getConfig();
         setProvider(config.provider || 'anthropic');
+        setApiMode(config.apiMode || 'byo');
         if (config.anthropicApiKey) {
           const placeholder = PROVIDER_INFO[config.provider || 'anthropic'].placeholder;
           setApiKey(`${placeholder.split('...')[0]}••••••••••••••••••••••••••••••••`);
@@ -836,16 +1026,32 @@ export function GeneralTab() {
     }
   };
 
+  const handleApiModeChange = async (mode: ApiMode) => {
+    try {
+      await tauri.setApiMode(mode);
+      setApiMode(mode);
+      addActivityLog({
+        operationType: 'api_call',
+        details: `Switched to ${mode === 'managed' ? 'managed' : 'BYO key'} mode`,
+        status: 'success',
+      });
+    } catch (err) {
+      console.error('Failed to change API mode:', err);
+    }
+  };
+
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
       await tauri.stopGateway();
       setGatewayStatus({ type: 'stopped' });
       await tauri.setApiKey('');
+      await tauri.setLicenseKey('');
+      await tauri.setUserEmail('');
       setApiKeyConfigured(false);
       addActivityLog({
         operationType: 'gateway',
-        details: 'Logged out and cleared API key',
+        details: 'Logged out and cleared credentials',
         status: 'success',
       });
       setScreen('onboarding');
@@ -861,22 +1067,31 @@ export function GeneralTab() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="space-y-8">
         <GatewayTokenSection />
-        <ProviderSection
-          provider={provider}
-          onProviderChange={handleProviderChange}
-          saving={saving}
-        />
-        <ApiKeySection
-          apiKey={apiKey}
-          provider={provider}
-          onApiKeyChange={handleApiKeyChange}
-          onSave={handleSaveKey}
-          showKey={showKey}
-          onToggleShowKey={() => setShowKey(!showKey)}
-          saving={saving}
-          saved={saved}
-          error={error}
-        />
+        <ApiModeSection apiMode={apiMode} onModeChange={handleApiModeChange} />
+        <AccountSection apiMode={apiMode} />
+
+        {/* BYO-specific sections: only show when in BYO mode */}
+        {apiMode === 'byo' && (
+          <>
+            <ProviderSection
+              provider={provider}
+              onProviderChange={handleProviderChange}
+              saving={saving}
+            />
+            <ApiKeySection
+              apiKey={apiKey}
+              provider={provider}
+              onApiKeyChange={handleApiKeyChange}
+              onSave={handleSaveKey}
+              showKey={showKey}
+              onToggleShowKey={() => setShowKey(!showKey)}
+              saving={saving}
+              saved={saved}
+              error={error}
+            />
+          </>
+        )}
+
         <GatewayStatusSection />
         <RuntimeStatusSection runtimeDetails={runtimeDetails} />
         <AppInfoSection version={appVersion} />

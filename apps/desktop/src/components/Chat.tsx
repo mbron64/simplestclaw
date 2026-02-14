@@ -3,11 +3,117 @@ import {
   type Message,
   createOpenClawClient,
 } from '@simplestclaw/openclaw-client';
-import { Loader2, Send, X } from 'lucide-react';
+import { ChevronDown, Loader2, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useAppStore } from '../lib/store';
 import { tauri } from '../lib/tauri';
+
+// Available models for the selector
+const MODELS = [
+  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'Anthropic' },
+  { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', provider: 'Anthropic' },
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+] as const;
+
+// Provider display names for BYO mode
+const PROVIDER_NAMES: Record<string, string> = {
+  anthropic: 'Claude',
+  openai: 'GPT-4o',
+  google: 'Gemini',
+  openrouter: 'OpenRouter',
+};
+
+// Model indicator shown below the input box (like Cursor)
+function ModelIndicator() {
+  const [open, setOpen] = useState(false);
+  const [currentModel, setCurrentModel] = useState(MODELS[0].id);
+  const [apiMode, setApiMode] = useState<string>('byo');
+  const [provider, setProvider] = useState<string>('anthropic');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    tauri.getConfig().then((config) => {
+      setApiMode(config.apiMode || 'byo');
+      setProvider(config.provider || 'anthropic');
+      if (config.selectedModel) {
+        setCurrentModel(config.selectedModel);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const handleSelect = async (modelId: string) => {
+    setCurrentModel(modelId);
+    setOpen(false);
+    try {
+      await tauri.setSelectedModel(modelId);
+    } catch (err) {
+      console.error('Failed to save model:', err);
+    }
+  };
+
+  // BYO mode: show provider name as a static label
+  if (apiMode === 'byo') {
+    const displayName = PROVIDER_NAMES[provider] || provider;
+    return (
+      <div className="flex items-center gap-1.5 text-[12px] text-white/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+        {displayName}
+        <span className="text-white/15">·</span>
+        <span className="text-white/20">your API key</span>
+      </div>
+    );
+  }
+
+  // Managed mode: interactive model selector dropdown
+  const selected = MODELS.find((m) => m.id === currentModel) || MODELS[0];
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-[12px] text-white/30 hover:text-white/50 transition-all"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+        {selected.name}
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 w-56 py-1 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-2xl z-50">
+          {MODELS.map((model) => (
+            <button
+              key={model.id}
+              type="button"
+              onClick={() => handleSelect(model.id)}
+              className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between ${
+                model.id === currentModel
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+              }`}
+            >
+              <span className="text-[13px]">{model.name}</span>
+              <span className="text-[11px] text-white/25">{model.provider}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Error Toast Component
 function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
@@ -297,7 +403,7 @@ export function Chat() {
       </div>
 
       {/* Input - simple, inviting */}
-      <div className="px-6 py-4 border-t border-white/5">
+      <div className="px-6 pt-3 pb-4 border-t border-white/5">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
           <div className="flex gap-3">
             <input
@@ -323,6 +429,9 @@ export function Chat() {
                 <Send className="w-5 h-5" />
               )}
             </button>
+          </div>
+          <div className="mt-1.5 px-1">
+            <ModelIndicator />
           </div>
         </form>
       </div>

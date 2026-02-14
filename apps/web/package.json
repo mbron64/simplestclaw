@@ -12,6 +12,7 @@
   "dependencies": {
     "@simplestclaw/openclaw-client": "workspace:*",
     "@simplestclaw/ui": "workspace:*",
+    "@supabase/supabase-js": "^2.49.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
     "motion": "^12.33.0",

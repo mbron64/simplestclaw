@@ -39,18 +39,46 @@ impl Default for Provider {
     }
 }
 
+/// API mode: managed (simplestclaw proxy) or bring-your-own key
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ApiMode {
+    /// User's own API key, direct to provider (existing behavior)
+    Byo,
+    /// Managed via simplestclaw proxy with license key
+    Managed,
+}
+
+impl Default for ApiMode {
+    fn default() -> Self {
+        ApiMode::Byo // Existing users unaffected
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// The selected AI provider
     #[serde(default)]
     pub provider: Provider,
-    /// API key (used for the selected provider)
+    /// API key (used for the selected provider in BYO mode)
     pub anthropic_api_key: Option<String>,
     #[serde(default = "default_port")]
     pub gateway_port: u16,
     #[serde(default = "default_auto_start")]
     pub auto_start_gateway: bool,
+    /// API mode: "byo" (bring your own key) or "managed" (simplestclaw proxy)
+    #[serde(default)]
+    pub api_mode: ApiMode,
+    /// License key for managed mode (issued on signup)
+    #[serde(default)]
+    pub license_key: Option<String>,
+    /// User email for managed mode (display in settings)
+    #[serde(default)]
+    pub user_email: Option<String>,
+    /// Selected model for managed mode (e.g. "claude-sonnet-4-20250514")
+    #[serde(default)]
+    pub selected_model: Option<String>,
 }
 
 fn default_port() -> u16 {
@@ -68,6 +96,10 @@ impl Default for Config {
             anthropic_api_key: None,
             gateway_port: default_port(),
             auto_start_gateway: default_auto_start(),
+            api_mode: ApiMode::default(),
+            license_key: None,
+            user_email: None,
+            selected_model: None,
         }
     }
 }
@@ -128,7 +160,52 @@ pub fn set_provider(provider: String) -> Result<(), String> {
 #[tauri::command]
 pub fn has_api_key() -> Result<bool, String> {
     let config = Config::load().map_err(|e| e.to_string())?;
+    // In managed mode, having a license key counts as "configured"
+    if config.api_mode == ApiMode::Managed {
+        return Ok(config.license_key.is_some());
+    }
     Ok(config.anthropic_api_key.is_some())
+}
+
+#[tauri::command]
+pub fn get_api_mode() -> Result<String, String> {
+    let config = Config::load().map_err(|e| e.to_string())?;
+    match config.api_mode {
+        ApiMode::Byo => Ok("byo".to_string()),
+        ApiMode::Managed => Ok("managed".to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn set_api_mode(mode: String) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.api_mode = match mode.to_lowercase().as_str() {
+        "byo" => ApiMode::Byo,
+        "managed" => ApiMode::Managed,
+        _ => return Err(format!("Unknown API mode: {}. Use 'byo' or 'managed'.", mode)),
+    };
+    config.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_license_key(key: String) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.license_key = if key.is_empty() { None } else { Some(key) };
+    config.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_user_email(email: String) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.user_email = if email.is_empty() { None } else { Some(email) };
+    config.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_selected_model(model: String) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.selected_model = if model.is_empty() { None } else { Some(model) };
+    config.save().map_err(|e| e.to_string())
 }
 
 /// Get the config directory path for the app

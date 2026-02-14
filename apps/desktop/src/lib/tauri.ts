@@ -2,12 +2,17 @@ import { invoke } from '@tauri-apps/api/core';
 import type { ActivityLogEntry, GatewayInfo } from './store';
 
 export type Provider = 'anthropic' | 'openai' | 'google' | 'openrouter';
+export type ApiMode = 'byo' | 'managed';
 
 export interface Config {
   provider: Provider;
   anthropicApiKey: string | null;
   gatewayPort: number;
   autoStartGateway: boolean;
+  apiMode: ApiMode;
+  licenseKey: string | null;
+  userEmail: string | null;
+  selectedModel: string | null;
 }
 
 export interface RuntimeStatus {
@@ -43,6 +48,27 @@ export const tauri = {
 
   async hasApiKey(): Promise<boolean> {
     return invoke('has_api_key');
+  },
+
+  // API Mode (managed vs BYO)
+  async getApiMode(): Promise<ApiMode> {
+    return invoke('get_api_mode') as Promise<ApiMode>;
+  },
+
+  async setApiMode(mode: ApiMode): Promise<void> {
+    return invoke('set_api_mode', { mode });
+  },
+
+  async setLicenseKey(key: string): Promise<void> {
+    return invoke('set_license_key', { key });
+  },
+
+  async setUserEmail(email: string): Promise<void> {
+    return invoke('set_user_email', { email });
+  },
+
+  async setSelectedModel(model: string): Promise<void> {
+    return invoke('set_selected_model', { model });
   },
 
   // Gateway

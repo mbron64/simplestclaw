@@ -122,10 +122,21 @@ impl SidecarManager {
             );
         }
 
-        // Get API key from config (already loaded above)
-        let api_key = config
-            .anthropic_api_key
-            .ok_or("No API key configured. Please enter your Anthropic API key in Settings.")?;
+        use crate::config::{ApiMode, Provider};
+
+        // Validate credentials based on API mode
+        match config.api_mode {
+            ApiMode::Managed => {
+                if config.license_key.is_none() {
+                    return Err("No license key configured. Please sign up or log in.".to_string());
+                }
+            }
+            ApiMode::Byo => {
+                if config.anthropic_api_key.is_none() {
+                    return Err("No API key configured. Please enter your API key in Settings.".to_string());
+                }
+            }
+        }
 
         let token = generate_token();
 
@@ -137,6 +148,7 @@ impl SidecarManager {
         println!("[openclaw] Starting gateway via bundled Node.js...");
         println!("[openclaw] Using node at: {}", node_cmd);
         println!("[openclaw] Using npx-cli at: {}", npx_cli_path);
+        println!("[openclaw] API mode: {:?}", config.api_mode);
 
         // Clear npx cache to prevent corrupted package issues
         // The npx cache at ~/.npm/_npx can become corrupted and cause
@@ -174,13 +186,28 @@ impl SidecarManager {
             .env("PATH", &path_env)
             .env("OPENCLAW_GATEWAY_TOKEN", &token);
         
-        // Set the appropriate API key environment variable based on provider
-        use crate::config::Provider;
-        match config.provider {
-            Provider::Anthropic => { cmd.env("ANTHROPIC_API_KEY", &api_key); }
-            Provider::Openai => { cmd.env("OPENAI_API_KEY", &api_key); }
-            Provider::Google => { cmd.env("GOOGLE_API_KEY", &api_key); }
-            Provider::Openrouter => { cmd.env("OPENROUTER_API_KEY", &api_key); }
+        // Configure provider credentials based on API mode
+        match config.api_mode {
+            ApiMode::Managed => {
+                // Write openclaw.json with models.providers pointing at our proxy.
+                // The license key is used as the "apiKey" for the custom provider.
+                let license_key = config.license_key.as_deref().unwrap_or("");
+                let model = config.selected_model.as_deref().unwrap_or("claude-sonnet-4-20250514");
+                let openclaw_config = write_managed_openclaw_config(license_key, model)?;
+                cmd.env("OPENCLAW_CONFIG_PATH", &openclaw_config);
+                // Set a dummy API key so openclaw doesn't complain about missing auth
+                cmd.env("ANTHROPIC_API_KEY", "managed-via-proxy");
+            }
+            ApiMode::Byo => {
+                // Existing behavior: direct provider API key
+                let api_key = config.anthropic_api_key.as_deref().unwrap_or("");
+                match config.provider {
+                    Provider::Anthropic => { cmd.env("ANTHROPIC_API_KEY", api_key); }
+                    Provider::Openai => { cmd.env("OPENAI_API_KEY", api_key); }
+                    Provider::Google => { cmd.env("GOOGLE_API_KEY", api_key); }
+                    Provider::Openrouter => { cmd.env("OPENROUTER_API_KEY", api_key); }
+                }
+            }
         }
         
         cmd
@@ -567,6 +594,74 @@ fn generate_token() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     format!("sclw-{:x}{:x}", duration.as_secs(), duration.subsec_nanos())
+}
+
+/// Write an openclaw.json config file for managed mode.
+/// This configures the gateway to route all LLM requests through our proxy,
+/// using the user's license key as the API key for the custom provider.
+/// Returns the path to the written config file.
+fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<String, String> {
+    let config_dir = dirs::config_dir()
+        .ok_or("Failed to get config directory")?
+        .join("simplestclaw");
+    std::fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create config dir: {}", e))?;
+
+    let config_path = config_dir.join("openclaw-managed.json");
+
+    // Determine the provider prefix and API type from the model name
+    let (provider_name, _api_type) = if model.contains("gpt") || model.contains("o1") || model.contains("o3") {
+        ("simplestclaw-openai", "openai-completions")
+    } else {
+        // Default to Anthropic (Claude models)
+        ("simplestclaw-anthropic", "anthropic-messages")
+    };
+
+    let proxy_base = "https://proxy.simplestclaw.com";
+
+    let config_json = format!(
+        r#"{{
+  "models": {{
+    "mode": "merge",
+    "providers": {{
+      "simplestclaw-anthropic": {{
+        "baseUrl": "{proxy_base}/v1/anthropic",
+        "apiKey": "{license_key}",
+        "api": "anthropic-messages",
+        "models": [
+          {{ "id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4" }},
+          {{ "id": "claude-opus-4-20250514", "name": "Claude Opus 4" }}
+        ]
+      }},
+      "simplestclaw-openai": {{
+        "baseUrl": "{proxy_base}/v1/openai",
+        "apiKey": "{license_key}",
+        "api": "openai-completions",
+        "models": [
+          {{ "id": "gpt-4o", "name": "GPT-4o" }},
+          {{ "id": "gpt-4o-mini", "name": "GPT-4o Mini" }}
+        ]
+      }}
+    }}
+  }},
+  "agents": {{
+    "defaults": {{
+      "model": {{ "primary": "{provider_name}/{model}" }}
+    }}
+  }}
+}}"#,
+        proxy_base = proxy_base,
+        license_key = license_key,
+        provider_name = provider_name,
+        model = model,
+    );
+
+    std::fs::write(&config_path, config_json)
+        .map_err(|e| format!("Failed to write openclaw config: {}", e))?;
+
+    println!("[openclaw] Wrote managed config to {:?}", config_path);
+
+    Ok(config_path.to_string_lossy().to_string())
 }
 
 // Tauri Commands
