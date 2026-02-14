@@ -361,7 +361,7 @@ function BillingSection({
                 )}
               </div>
               <ul className="space-y-2">
-                {['500 messages per day', 'All 7 models incl. Claude Opus 4.6, Gemini 3', 'Priority support', 'Early access to features'].map((f) => (
+                {['500 messages per day', 'All 5 models incl. Haiku 4.5, Gemini 3 Pro/Flash', 'Priority support', 'Early access to features'].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-[13px] text-white/50">
                     <CheckIcon className="w-3.5 h-3.5 text-emerald-500/60 shrink-0 mt-0.5" />
                     {f}
@@ -516,7 +516,7 @@ function UsageSection({ account }: { account: AccountData }) {
             <div>
               <p className="text-[12px] text-white/30 mb-1">Available models</p>
               <p className="text-[16px] font-medium">
-                {account.subscription.plan === 'pro' ? 'All 7 models' : 'Sonnet 4.5, GPT-5 Mini'}
+                {account.subscription.plan === 'pro' ? 'All 5 models' : 'Sonnet 4.5, GPT-5 Mini'}
               </p>
             </div>
           </div>

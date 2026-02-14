@@ -634,7 +634,6 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
         "apiKey": "{license_key}",
         "api": "anthropic-messages",
         "models": [
-          {{ "id": "claude-opus-4-6", "name": "Claude Opus 4.6" }},
           {{ "id": "claude-sonnet-4-5-20250929", "name": "Claude Sonnet 4.5" }},
           {{ "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" }}
         ]
@@ -644,7 +643,6 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
         "apiKey": "{license_key}",
         "api": "openai-completions",
         "models": [
-          {{ "id": "gpt-5.2", "name": "GPT-5.2" }},
           {{ "id": "gpt-5-mini", "name": "GPT-5 Mini" }}
         ]
       }},

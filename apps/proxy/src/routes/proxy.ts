@@ -50,8 +50,19 @@ function sanitizeUpstreamPath(rawPath: string, prefix: string): string | null {
   return stripped.startsWith('/') ? stripped : `/${stripped}`;
 }
 
-// Models that Free plan users can access
+// All models available on the platform (reject anything not in this set).
 // Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
+const AVAILABLE_MODELS = new Set([
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-5',  // alias
+  'claude-haiku-4-5-20251001',
+  'claude-haiku-4-5',   // alias
+  'gpt-5-mini',
+  'gemini-3-pro-preview',
+  'gemini-3-flash-preview',
+]);
+
+// Models that Free plan users can access (subset of AVAILABLE_MODELS)
 const FREE_MODELS = new Set([
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',  // alias
@@ -96,13 +107,21 @@ async function extractModelFromBody(c: { req: { raw: Request } }): Promise<strin
 
 /**
  * Check if a model is allowed for a given plan.
- * Free plan: only specific models. Pro plan: all models.
+ * First: reject models not on the platform at all (e.g. expensive flagships we don't offer).
+ * Then: Free plan gets a subset, Pro plan gets all available models.
  */
 function isModelAllowed(model: string | null, plan: string): boolean {
-  if (plan === 'pro') return true;
   if (!model) return true; // Can't determine model, allow (provider will reject if invalid)
 
-  // Check if the model matches any free model (prefix match for versioned model names)
+  // Check model is on the platform at all
+  const isAvailable = AVAILABLE_MODELS.has(model) ||
+    [...AVAILABLE_MODELS].some((m) => model.startsWith(m));
+  if (!isAvailable) return false;
+
+  // Pro users can use any available model
+  if (plan === 'pro') return true;
+
+  // Free users: only specific models
   for (const freeModel of FREE_MODELS) {
     if (model === freeModel || model.startsWith(freeModel)) {
       return true;

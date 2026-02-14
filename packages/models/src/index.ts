@@ -36,14 +36,6 @@ export interface ModelDefinition {
 export const MODELS: readonly ModelDefinition[] = [
   // Anthropic
   {
-    id: 'claude-opus-4-6',
-    name: 'Claude Opus 4.6',
-    provider: 'anthropic',
-    plans: ['pro'],
-    cost: { input: 500, output: 2500 },
-    description: 'Most intelligent model for complex coding and agents',
-  },
-  {
     id: 'claude-sonnet-4-5-20250929',
     name: 'Claude Sonnet 4.5',
     provider: 'anthropic',
@@ -61,14 +53,6 @@ export const MODELS: readonly ModelDefinition[] = [
   },
 
   // OpenAI
-  {
-    id: 'gpt-5.2',
-    name: 'GPT-5.2',
-    provider: 'openai',
-    plans: ['pro'],
-    cost: { input: 175, output: 1400 },
-    description: 'Latest flagship model from OpenAI',
-  },
   {
     id: 'gpt-5-mini',
     name: 'GPT-5 Mini',
@@ -122,7 +106,6 @@ export const COST_BY_MODEL: Record<string, { input: number; output: number }> = 
 
 /** Model aliases (provider shorthand -> full ID) */
 export const MODEL_ALIASES: Record<string, string> = {
-  'claude-opus-4-6': 'claude-opus-4-6',
   'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929',
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001',
 };

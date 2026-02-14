@@ -27,7 +27,7 @@ const PLANS = [
     description: 'For power users who need more capacity and top-tier models.',
     features: [
       '500 messages per day',
-      'All models: Claude Opus 4.6, Sonnet 4.5, Haiku 4.5, GPT-5.2, GPT-5 Mini, Gemini 3 Pro/Flash',
+      'All models: Claude Sonnet 4.5, Haiku 4.5, GPT-5 Mini, Gemini 3 Pro, Gemini 3 Flash',
       'Priority support',
       'Early access to new features',
       'Full privacy — data stays on your device',
@@ -141,7 +141,7 @@ function FAQ() {
     },
     {
       q: 'What models are available?',
-      a: 'Free users have access to Claude Sonnet 4.5 and GPT-5 Mini. Pro users get access to all 7 models including Claude Opus 4.6, Haiku 4.5, GPT-5.2, and Gemini 3 Pro/Flash.',
+      a: 'Free users have access to Claude Sonnet 4.5 and GPT-5 Mini. Pro users get access to all 5 models including Claude Haiku 4.5, Gemini 3 Pro, and Gemini 3 Flash.',
     },
     {
       q: 'Can I switch between managed and BYO mode?',

@@ -13,11 +13,9 @@ import { tauri } from '../lib/tauri';
 // Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
 const MODELS = [
   // Anthropic
-  { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'Anthropic' },
   { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
   { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', provider: 'Anthropic' },
   // OpenAI
-  { id: 'gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
   { id: 'gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },
   // Google
   { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', provider: 'Google' },
