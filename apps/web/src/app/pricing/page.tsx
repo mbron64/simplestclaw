@@ -60,7 +60,7 @@ function PlanCard({
 }) {
   return (
     <div
-      className={`relative p-8 rounded-2xl border transition-all ${
+      className={`relative p-8 rounded-2xl border transition-all flex flex-col ${
         plan.highlighted
           ? 'bg-white/[0.04] border-emerald-500/20'
           : 'bg-white/[0.02] border-white/10'
@@ -103,7 +103,7 @@ function PlanCard({
 
       <Link
         href={plan.ctaLink}
-        className={`block w-full text-center py-3 rounded-xl text-[15px] font-medium transition-all ${
+        className={`mt-auto block w-full text-center py-3 rounded-xl text-[15px] font-medium transition-all ${
           plan.highlighted
             ? 'bg-white text-black hover:bg-white/90'
             : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/10'
