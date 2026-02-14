@@ -16,7 +16,7 @@ interface AccountData {
     createdAt: string;
   };
   subscription: {
-    plan: 'free' | 'pro';
+    plan: 'free' | 'pro' | 'ultra';
     status: string;
     hasStripeCustomer: boolean;
     currentPeriodEnd: string | null;
@@ -148,11 +148,14 @@ function GeneralSection({ account }: { account: AccountData }) {
     }
   };
 
-  const planLabel = account.subscription.plan === 'pro' ? 'Pro' : 'Free';
-  const planBadgeColor =
-    account.subscription.plan === 'pro'
-      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-      : 'bg-white/5 text-white/50 border-white/10';
+  const planLabels: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' };
+  const planLabel = planLabels[account.subscription.plan] || 'Free';
+  const planBadgeColors: Record<string, string> = {
+    free: 'bg-white/5 text-white/50 border-white/10',
+    pro: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    ultra: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+  };
+  const planBadgeColor = planBadgeColors[account.subscription.plan] || planBadgeColors.free;
 
   return (
     <div className="space-y-8">
@@ -263,12 +266,12 @@ function BillingSection({
   account: AccountData;
   accessToken: string;
 }) {
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
 
-  const isPro = account.subscription.plan === 'pro';
+  const currentPlan = account.subscription.plan;
 
-  const handleUpgrade = async () => {
-    setUpgradeLoading(true);
+  const handleUpgrade = async (targetPlan: 'pro' | 'ultra') => {
+    setUpgradeLoading(targetPlan);
     try {
       const res = await fetch(`${PROXY_URL}/billing/upgrade`, {
         method: 'POST',
@@ -276,6 +279,7 @@ function BillingSection({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
+        body: JSON.stringify({ plan: targetPlan }),
       });
       const data = await res.json();
       if (data.url) {
@@ -284,7 +288,7 @@ function BillingSection({
     } catch (err) {
       console.error('Failed to start checkout:', err);
     } finally {
-      setUpgradeLoading(false);
+      setUpgradeLoading(null);
     }
   };
 
@@ -304,6 +308,33 @@ function BillingSection({
     }
   };
 
+  const plans: { id: string; name: string; price: string; features: string[]; checkColor: string }[] = [
+    {
+      id: 'free',
+      name: 'Free',
+      price: '$0 / month',
+      features: ['10 messages per day', 'Sonnet 4.5, GPT-5 Mini'],
+      checkColor: 'text-white/30',
+    },
+    {
+      id: 'pro',
+      name: 'Pro',
+      price: '$20 / month',
+      features: ['500 messages per day', '5 models incl. Haiku 4.5, Gemini 3'],
+      checkColor: 'text-emerald-500/60',
+    },
+    {
+      id: 'ultra',
+      name: 'Ultra',
+      price: '$200 / month',
+      features: ['2,000 messages per day', 'All 7 models incl. Opus 4.5, GPT-5.2'],
+      checkColor: 'text-violet-500/60',
+    },
+  ];
+
+  const planOrder = ['free', 'pro', 'ultra'];
+  const currentIndex = planOrder.indexOf(currentPlan);
+
   return (
     <div className="space-y-8">
       {/* Current Plan */}
@@ -315,60 +346,44 @@ function BillingSection({
 
         <div className="rounded-xl border border-white/10 overflow-hidden">
           {/* Plan comparison */}
-          <div className="grid md:grid-cols-2 divide-x divide-white/10">
-            {/* Free Plan */}
-            <div className={`p-6 ${!isPro ? 'bg-white/[0.03]' : 'bg-white/[0.01]'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-[16px] font-medium">Free</h3>
-                  <p className="text-[13px] text-white/40 mt-0.5">$0 / month</p>
+          <div className="grid md:grid-cols-3 divide-x divide-white/10">
+            {plans.map((plan) => (
+              <div key={plan.id} className={`p-6 ${currentPlan === plan.id ? 'bg-white/[0.03]' : 'bg-white/[0.01]'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-[16px] font-medium">{plan.name}</h3>
+                    <p className="text-[13px] text-white/40 mt-0.5">{plan.price}</p>
+                  </div>
+                  {currentPlan === plan.id && (
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                      plan.id === 'ultra'
+                        ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                        : plan.id === 'pro'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-white/10 text-white/60 border-white/10'
+                    }`}>
+                      Current plan
+                    </span>
+                  )}
                 </div>
-                {!isPro && (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/10 text-white/60 border border-white/10">
-                    Current plan
-                  </span>
-                )}
+                <ul className="space-y-2">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-[13px] text-white/50">
+                      <CheckIcon className={`w-3.5 h-3.5 ${plan.checkColor} shrink-0 mt-0.5`} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-2">
-                {['10 messages per day', 'Claude Sonnet 4.5, GPT-5 Mini', 'Runs locally'].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-[13px] text-white/50">
-                    <CheckIcon className="w-3.5 h-3.5 text-white/30 shrink-0 mt-0.5" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Pro Plan */}
-            <div className={`p-6 ${isPro ? 'bg-white/[0.03]' : 'bg-white/[0.01]'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-[16px] font-medium">Pro</h3>
-                  <p className="text-[13px] text-white/40 mt-0.5">$20 / month</p>
-                </div>
-                {isPro && (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Current plan
-                  </span>
-                )}
-              </div>
-              <ul className="space-y-2">
-                {['500 messages per day', 'All 5 models incl. Haiku 4.5, Gemini 3 Pro/Flash', 'Priority support', 'Early access to features'].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-[13px] text-white/50">
-                    <CheckIcon className="w-3.5 h-3.5 text-emerald-500/60 shrink-0 mt-0.5" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            ))}
           </div>
 
           {/* Action */}
           <div className="p-5 bg-white/[0.01] border-t border-white/10">
-            {isPro ? (
+            {currentPlan === 'ultra' ? (
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[14px] text-white/70">You&apos;re on the Pro plan.</p>
+                  <p className="text-[14px] text-white/70">You&apos;re on the Ultra plan.</p>
                   {account.subscription.currentPeriodEnd && (
                     <p className="text-[13px] text-white/40 mt-0.5">
                       Renews {new Date(account.subscription.currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -384,27 +399,80 @@ function BillingSection({
                   Manage subscription
                 </button>
               </div>
+            ) : currentPlan === 'pro' ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[14px] text-white/70">You&apos;re on the Pro plan.</p>
+                  {account.subscription.currentPeriodEnd && (
+                    <p className="text-[13px] text-white/40 mt-0.5">
+                      Renews {new Date(account.subscription.currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleManageViaToken}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/10 text-[13px] font-medium text-white/60 hover:bg-white/[0.08] hover:text-white/80 transition-all"
+                  >
+                    <ExternalLinkIcon className="w-3.5 h-3.5" />
+                    Manage
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpgrade('ultra')}
+                    disabled={!!upgradeLoading}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500 text-white text-[13px] font-medium hover:bg-violet-500/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {upgradeLoading === 'ultra' ? (
+                      <>
+                        <SpinnerIcon className="w-3.5 h-3.5" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Upgrade to Ultra'
+                    )}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[14px] text-white/70">Upgrade to Pro for more messages and all models.</p>
-                  <p className="text-[13px] text-white/40 mt-0.5">$20/month, cancel anytime.</p>
+                  <p className="text-[14px] text-white/70">Upgrade for more messages and models.</p>
+                  <p className="text-[13px] text-white/40 mt-0.5">Cancel anytime.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleUpgrade}
-                  disabled={upgradeLoading}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-black text-[13px] font-medium hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {upgradeLoading ? (
-                    <>
-                      <SpinnerIcon className="w-3.5 h-3.5" />
-                      Loading...
-                    </>
-                  ) : (
-                    'Upgrade to Pro'
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpgrade('pro')}
+                    disabled={!!upgradeLoading}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-black text-[13px] font-medium hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {upgradeLoading === 'pro' ? (
+                      <>
+                        <SpinnerIcon className="w-3.5 h-3.5" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Pro — $20/mo'
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpgrade('ultra')}
+                    disabled={!!upgradeLoading}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500 text-white text-[13px] font-medium hover:bg-violet-500/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {upgradeLoading === 'ultra' ? (
+                      <>
+                        <SpinnerIcon className="w-3.5 h-3.5" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Ultra — $200/mo'
+                    )}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -412,7 +480,7 @@ function BillingSection({
       </div>
 
       {/* Billing Portal */}
-      {isPro && account.subscription.hasStripeCustomer && (
+      {(currentPlan === 'pro' || currentPlan === 'ultra') && account.subscription.hasStripeCustomer && (
         <div>
           <h2 className="text-[18px] font-medium mb-1">Payment Method</h2>
           <p className="text-[14px] text-white/40 mb-5">
@@ -508,7 +576,11 @@ function UsageSection({ account }: { account: AccountData }) {
             <div>
               <p className="text-[12px] text-white/30 mb-1">Available models</p>
               <p className="text-[16px] font-medium">
-                {account.subscription.plan === 'pro' ? 'All 5 models' : 'Sonnet 4.5, GPT-5 Mini'}
+                {account.subscription.plan === 'ultra'
+                  ? 'All 7 models'
+                  : account.subscription.plan === 'pro'
+                    ? '5 models'
+                    : 'Sonnet 4.5, GPT-5 Mini'}
               </p>
             </div>
           </div>

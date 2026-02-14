@@ -12,11 +12,13 @@ import { tauri } from '../lib/tauri';
 // Managed models available through SimplestClaw proxy
 // Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
 const MANAGED_MODELS = [
-  { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
-  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', provider: 'Anthropic' },
-  { id: 'gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },
-  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', provider: 'Google' },
-  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Google' },
+  { id: 'claude-opus-4-5-20251124', name: 'Claude Opus 4.5', provider: 'Anthropic', tier: 'ultra' },
+  { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', provider: 'Anthropic', tier: 'free' },
+  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', provider: 'Anthropic', tier: 'pro' },
+  { id: 'gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI', tier: 'ultra' },
+  { id: 'gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI', tier: 'free' },
+  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', provider: 'Google', tier: 'pro' },
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Google', tier: 'pro' },
 ] as const;
 
 // Provider display names for BYO mode

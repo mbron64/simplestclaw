@@ -34,6 +34,9 @@ export interface ProxyConfig {
   /** Stripe Price ID for the Pro plan */
   stripeProPriceId: string;
 
+  /** Stripe Price ID for the Ultra plan */
+  stripeUltraPriceId: string;
+
   /** Public URL of this proxy service (for OAuth redirect) */
   proxyUrl: string;
 
@@ -79,6 +82,7 @@ export function loadConfig(): ProxyConfig {
     stripeSecretKey: envForMode('STRIPE_SECRET_KEY', nodeEnv),
     stripeWebhookSecret: envForMode('STRIPE_WEBHOOK_SECRET', nodeEnv),
     stripeProPriceId: envForMode('STRIPE_PRO_PRICE_ID', nodeEnv),
+    stripeUltraPriceId: envForMode('STRIPE_ULTRA_PRICE_ID', nodeEnv),
     proxyUrl: optionalEnv('PROXY_URL', 'https://proxy.simplestclaw.com'),
     nodeEnv,
   };

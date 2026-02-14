@@ -80,7 +80,8 @@ export async function resolveLicenseKey(
       .eq('user_id', userId)
       .single();
 
-    const rawPlan = subData?.plan === 'pro' ? 'pro' : 'free';
+    const validPlans = new Set(['free', 'pro', 'ultra']);
+    const rawPlan = validPlans.has(subData?.plan) ? subData!.plan : 'free';
     const status = subData?.status || 'active';
 
     // Fully reject cancelled/inactive subscriptions
@@ -91,8 +92,8 @@ export async function resolveLicenseKey(
 
     // Downgrade past_due users to free-tier limits as a grace period.
     // They can still use the service (incentive to fix payment) but with
-    // reduced limits. Once Stripe retries succeed, they get pro back.
-    const plan: 'free' | 'pro' = status === 'past_due' ? 'free' : rawPlan;
+    // reduced limits. Once Stripe retries succeed, they get their plan back.
+    const plan = status === 'past_due' ? 'free' : rawPlan;
 
     const entry: CachedLicense = {
       userId,

@@ -18,7 +18,8 @@ import { getSupabaseAdmin } from './supabase.js';
 // Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
 const COST_PER_MILLION: Record<string, { input: number; output: number }> = {
   // Anthropic
-  'claude-opus-4-6': { input: 500, output: 2500 },
+  'claude-opus-4-5-20251124': { input: 500, output: 2500 },
+  'claude-opus-4-5': { input: 500, output: 2500 }, // alias
   'claude-sonnet-4-5-20250929': { input: 300, output: 1500 },
   'claude-sonnet-4-5': { input: 300, output: 1500 }, // alias
   'claude-haiku-4-5-20251001': { input: 100, output: 500 },

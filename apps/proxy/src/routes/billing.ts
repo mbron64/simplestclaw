@@ -120,7 +120,7 @@ export function createBillingRoutes(config: ProxyConfig) {
     if (!STRIPE_PRICE_RE.test(body.priceId)) {
       return c.json({ error: 'Invalid priceId format' }, 400);
     }
-    const allowedPrices = new Set([config.stripeProPriceId].filter(Boolean));
+    const allowedPrices = new Set([config.stripeProPriceId, config.stripeUltraPriceId].filter(Boolean));
     if (!allowedPrices.has(body.priceId)) {
       return c.json({ error: 'Price not available' }, 400);
     }
@@ -196,14 +196,19 @@ export function createBillingRoutes(config: ProxyConfig) {
         }, { onConflict: 'user_id' });
     }
 
-    if (!config.stripeProPriceId) {
-      return c.json({ error: 'Pro plan price not configured' }, 503);
+    // Determine target plan from request body (default: pro)
+    const body = await c.req.json<{ plan?: string }>().catch(() => ({}));
+    const targetPlan = body.plan === 'ultra' ? 'ultra' : 'pro';
+
+    const priceId = targetPlan === 'ultra' ? config.stripeUltraPriceId : config.stripeProPriceId;
+    if (!priceId) {
+      return c.json({ error: `${targetPlan} plan price not configured` }, 503);
     }
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
-      line_items: [{ price: config.stripeProPriceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       success_url: 'https://simplestclaw.com/settings?upgraded=true',
       cancel_url: 'https://simplestclaw.com/settings',
       metadata: {
@@ -248,17 +253,30 @@ export function createBillingRoutes(config: ProxyConfig) {
         const subscriptionId = session.subscription as string;
 
         if (userId) {
+          // Determine which plan was purchased by looking up the subscription's price ID
+          let plan: 'pro' | 'ultra' = 'pro';
+          try {
+            const stripeClient = getStripeClient(config);
+            const sub = await stripeClient.subscriptions.retrieve(subscriptionId);
+            const priceId = sub.items.data[0]?.price?.id;
+            if (priceId && priceId === config.stripeUltraPriceId) {
+              plan = 'ultra';
+            }
+          } catch (err) {
+            console.error('[billing] Failed to determine plan from subscription, defaulting to pro:', err);
+          }
+
           await admin
             .from('subscriptions')
             .upsert({
               user_id: userId,
               stripe_customer_id: customerId,
               stripe_subscription_id: subscriptionId,
-              plan: 'pro',
+              plan,
               status: 'active',
             }, { onConflict: 'user_id' });
 
-          // Immediately reflect Pro access -- don't wait for cache TTL
+          // Immediately reflect access -- don't wait for cache TTL
           await invalidateUserLicenseCache(config, userId);
         }
         break;
@@ -481,7 +499,8 @@ export function createBillingRoutes(config: ProxyConfig) {
       (row) => new Date(row.created_at) >= todayStart,
     ).length;
 
-    const dailyLimit = subscription.plan === 'pro' ? 500 : 10;
+    const dailyLimits: Record<string, number> = { free: 10, pro: 500, ultra: 2000 };
+    const dailyLimit = dailyLimits[subscription.plan] ?? 10;
 
     return c.json({
       user: {

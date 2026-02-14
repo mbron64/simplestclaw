@@ -20,22 +20,40 @@ const PLANS = [
     cta: 'Download free',
     ctaLink: '/',
     highlighted: false,
+    tier: 'free' as const,
   },
   {
     name: 'Pro',
     price: '$20',
     period: '/month',
-    description: 'For power users who need more capacity and top-tier models.',
+    description: 'More capacity and access to 5 models.',
     features: [
       '500 messages per day',
-      'All models: Claude Sonnet 4.5, Haiku 4.5, GPT-5 Mini, Gemini 3 Pro, Gemini 3 Flash',
+      '5 models: Sonnet 4.5, Haiku 4.5, GPT-5 Mini, Gemini 3 Pro, Gemini 3 Flash',
       'Priority support',
-      'Early access to new features',
       'No account data stored on our servers',
     ],
     cta: 'Start free, upgrade anytime',
     ctaLink: '/settings?tab=billing',
+    highlighted: false,
+    tier: 'pro' as const,
+  },
+  {
+    name: 'Ultra',
+    price: '$200',
+    period: '/month',
+    description: 'Maximum power. The best models with the highest limits.',
+    features: [
+      '2,000 messages per day',
+      'All 7 models including Claude Opus 4.5 and GPT-5.2',
+      'Most powerful models available',
+      'Priority support',
+      'Early access to new features',
+    ],
+    cta: 'Upgrade to Ultra',
+    ctaLink: '/settings?tab=billing',
     highlighted: true,
+    tier: 'ultra' as const,
   },
 ];
 
@@ -126,7 +144,7 @@ function FAQ() {
     },
     {
       q: 'What models are available?',
-      a: 'Free users have access to Claude Sonnet 4.5 and GPT-5 Mini. Pro users get access to all 5 models including Claude Haiku 4.5, Gemini 3 Pro, and Gemini 3 Flash.',
+      a: 'Free users get Claude Sonnet 4.5 and GPT-5 Mini. Pro unlocks 5 models including Haiku 4.5, Gemini 3 Pro, and Gemini 3 Flash. Ultra gives you all 7 models including the most powerful: Claude Opus 4.5 and GPT-5.2.',
     },
     {
       q: 'Can I switch between managed and BYO mode?',
@@ -138,7 +156,7 @@ function FAQ() {
     },
     {
       q: 'How do I cancel?',
-      a: 'You can cancel your Pro subscription anytime from Settings in the app. You\'ll keep access until the end of your billing period.',
+      a: 'You can cancel your Pro or Ultra subscription anytime from Settings in the app. You\'ll keep access until the end of your billing period.',
     },
   ];
 
@@ -229,7 +247,7 @@ export default function PricingPage() {
 
       {/* Plan Cards */}
       <section className="pb-24 px-6">
-        <div className="max-w-3xl mx-auto grid md:grid-cols-2 gap-4">
+        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-4">
           {PLANS.map((plan) => (
             <PlanCard key={plan.name} plan={plan} />
           ))}

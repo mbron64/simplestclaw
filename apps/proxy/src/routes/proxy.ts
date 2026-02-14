@@ -53,10 +53,13 @@ function sanitizeUpstreamPath(rawPath: string, prefix: string): string | null {
 // All models available on the platform (reject anything not in this set).
 // Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
 const AVAILABLE_MODELS = new Set([
+  'claude-opus-4-5-20251124',
+  'claude-opus-4-5',    // alias
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',  // alias
   'claude-haiku-4-5-20251001',
   'claude-haiku-4-5',   // alias
+  'gpt-5.2',
   'gpt-5-mini',
   'gemini-3-pro-preview',
   'gemini-3-flash-preview',
@@ -67,6 +70,13 @@ const FREE_MODELS = new Set([
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',  // alias
   'gpt-5-mini',
+]);
+
+// Models that require Ultra plan (not available on Pro)
+const ULTRA_ONLY_MODELS = new Set([
+  'claude-opus-4-5-20251124',
+  'claude-opus-4-5',    // alias
+  'gpt-5.2',
 ]);
 
 /**
@@ -107,8 +117,8 @@ async function extractModelFromBody(c: { req: { raw: Request } }): Promise<strin
 
 /**
  * Check if a model is allowed for a given plan.
- * First: reject models not on the platform at all (e.g. expensive flagships we don't offer).
- * Then: Free plan gets a subset, Pro plan gets all available models.
+ * First: reject models not on the platform at all.
+ * Then: Ultra gets all, Pro gets all except ultra-only, Free gets a subset.
  */
 function isModelAllowed(model: string | null, plan: string): boolean {
   if (!model) return true; // Can't determine model, allow (provider will reject if invalid)
@@ -118,7 +128,15 @@ function isModelAllowed(model: string | null, plan: string): boolean {
     [...AVAILABLE_MODELS].some((m) => model.startsWith(m));
   if (!isAvailable) return false;
 
-  // Pro users can use any available model
+  // Ultra users can use any available model
+  if (plan === 'ultra') return true;
+
+  // Check if model is ultra-only
+  const isUltraOnly = ULTRA_ONLY_MODELS.has(model) ||
+    [...ULTRA_ONLY_MODELS].some((m) => model.startsWith(m));
+  if (isUltraOnly) return false;
+
+  // Pro users can use any non-ultra model
   if (plan === 'pro') return true;
 
   // Free users: only specific models
@@ -170,9 +188,12 @@ async function validateAndCheckLimits(
 
   // 2. Check model access
   if (!isModelAllowed(model, license.plan)) {
-    const upgradeMsg = license.plan === 'free'
-      ? ' Upgrade to Pro at simplestclaw.com/settings for access to all models.'
-      : '';
+    let upgradeMsg = '';
+    if (license.plan === 'free') {
+      upgradeMsg = ' Upgrade to Pro at simplestclaw.com/settings for access to more models.';
+    } else if (license.plan === 'pro') {
+      upgradeMsg = ' Upgrade to Ultra at simplestclaw.com/settings for access to all models including Opus 4.5 and GPT-5.2.';
+    }
     return {
       ok: false,
       response: Response.json(
@@ -190,9 +211,12 @@ async function validateAndCheckLimits(
   // 3. Check rate limit
   const rateLimit = checkAndIncrement(license.userId, license.plan);
   if (!rateLimit.allowed) {
-    const upgradeMsg = license.plan === 'free'
-      ? ' Upgrade to Pro for 500 messages/day at simplestclaw.com/settings.'
-      : '';
+    let upgradeMsg = '';
+    if (license.plan === 'free') {
+      upgradeMsg = ' Upgrade to Pro for 500 messages/day at simplestclaw.com/settings.';
+    } else if (license.plan === 'pro') {
+      upgradeMsg = ' Upgrade to Ultra for 2000 messages/day at simplestclaw.com/settings.';
+    }
     const errorResponse = Response.json(
       {
         error: {
