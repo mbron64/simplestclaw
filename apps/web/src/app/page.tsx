@@ -116,7 +116,7 @@ function Navbar() {
 function ModeSelectionCards({ onSelectMode }: { onSelectMode: (mode: DeploymentMode) => void }) {
   return (
     <>
-      <div className="mt-16 max-w-lg mx-auto">
+      <div className="mt-16 max-w-md mx-auto">
         <button
           type="button"
           onClick={() => onSelectMode('local')}
