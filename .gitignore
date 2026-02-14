@@ -38,3 +38,4 @@ coverage/
 # Misc
 *.pem
 .vercel
+yc/
