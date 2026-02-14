@@ -36,22 +36,6 @@ const PLANS = [
     ctaLink: '/settings?tab=billing',
     highlighted: true,
   },
-  {
-    name: 'Bring Your Own Key',
-    price: 'Free',
-    period: 'app only',
-    description: 'Use your own API keys. No limits from us.',
-    features: [
-      'Unlimited messages',
-      'Any model your provider supports',
-      'Direct API connection — no proxy',
-      'Full privacy — data stays on your device',
-      'Zero cost from simplestclaw',
-    ],
-    cta: 'Download app',
-    ctaLink: '/',
-    highlighted: false,
-  },
 ];
 
 function CheckIcon() {
@@ -249,11 +233,14 @@ export default function PricingPage() {
 
       {/* Plan Cards */}
       <section className="pb-24 px-6">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-4">
+        <div className="max-w-3xl mx-auto grid md:grid-cols-2 gap-4">
           {PLANS.map((plan) => (
             <PlanCard key={plan.name} plan={plan} />
           ))}
         </div>
+        <p className="text-[13px] text-white/30 text-center mt-6">
+          You can also bring your own API key and use the app with no limits from us.
+        </p>
       </section>
 
       <FAQ />
