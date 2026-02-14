@@ -135,12 +135,11 @@ function ModeSelectionCards({ onSelectMode }: { onSelectMode: (mode: DeploymentM
             borderWidth={2}
           />
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[22px] font-medium">Run locally</h2>
+            <h2 className="text-[22px] font-medium">Download OpenClaw</h2>
             <ArrowRightIcon className="w-5 h-5 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" />
           </div>
           <p className="text-[15px] text-white/50 leading-relaxed mb-4">
-            Download the open source desktop app. Everything runs on your machine. Your data never
-            leaves.
+            Open source desktop app. Ready in seconds.
           </p>
           <span className="inline-block text-[13px] font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
             Free
