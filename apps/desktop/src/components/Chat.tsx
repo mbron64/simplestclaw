@@ -9,39 +9,43 @@ import ReactMarkdown from 'react-markdown';
 import { useAppStore } from '../lib/store';
 import { tauri } from '../lib/tauri';
 
-// Available models for the selector
+// Managed models available through SimplestClaw proxy
 // Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
-const MODELS = [
-  // Anthropic
+const MANAGED_MODELS = [
   { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
   { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', provider: 'Anthropic' },
-  // OpenAI
   { id: 'gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },
-  // Google
   { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', provider: 'Google' },
   { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Google' },
 ] as const;
 
 // Provider display names for BYO mode
-const PROVIDER_NAMES: Record<string, string> = {
-  anthropic: 'Claude',
-  openai: 'GPT-5',
-  google: 'Gemini',
-  openrouter: 'OpenRouter',
+const BYO_PROVIDERS: Record<string, { name: string; model: string }> = {
+  anthropic: { name: 'Claude', model: 'Your Claude model' },
+  openai: { name: 'OpenAI', model: 'Your OpenAI model' },
+  google: { name: 'Gemini', model: 'Your Gemini model' },
+  openrouter: { name: 'OpenRouter', model: 'Your OpenRouter model' },
 };
 
-// Model indicator shown below the input box (like Cursor)
+// Unified model selector shown below the input box
+// Shows all available options in sections: managed models, BYO key, etc.
 function ModelIndicator() {
+  const { setGatewayStatus } = useAppStore();
   const [open, setOpen] = useState(false);
-  const [currentModel, setCurrentModel] = useState<string>(MODELS[0].id);
+  const [currentModel, setCurrentModel] = useState<string>(MANAGED_MODELS[0].id);
   const [apiMode, setApiMode] = useState<string>('byo');
   const [provider, setProvider] = useState<string>('anthropic');
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [hasLicenseKey, setHasLicenseKey] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     tauri.getConfig().then((config) => {
       setApiMode(config.apiMode || 'byo');
       setProvider(config.provider || 'anthropic');
+      setHasApiKey(config.hasApiKey);
+      setHasLicenseKey(!!config.licenseKey);
       if (config.selectedModel) {
         setCurrentModel(config.selectedModel);
       }
@@ -59,61 +63,151 @@ function ModelIndicator() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const handleSelect = async (modelId: string) => {
+  // Select a managed model
+  const handleSelectManaged = async (modelId: string) => {
+    const modeChanged = apiMode !== 'managed';
     setCurrentModel(modelId);
+    setApiMode('managed');
     setOpen(false);
+
     try {
       await tauri.setSelectedModel(modelId);
+      if (modeChanged) {
+        await tauri.setApiMode('managed');
+        // Restart gateway to switch provider config
+        setSwitching(true);
+        try { await tauri.stopGateway(); } catch { /* ok */ }
+        setGatewayStatus({ type: 'starting' });
+        const info = await tauri.startGateway();
+        setGatewayStatus({ type: 'running', info });
+      }
     } catch (err) {
-      console.error('Failed to save model:', err);
+      console.error('Failed to switch model:', err);
+    } finally {
+      setSwitching(false);
     }
   };
 
-  // BYO mode: show provider name as a static label
-  if (apiMode === 'byo') {
-    const displayName = PROVIDER_NAMES[provider] || provider;
+  // Select BYO mode
+  const handleSelectByo = async () => {
+    const modeChanged = apiMode !== 'byo';
+    setApiMode('byo');
+    setOpen(false);
+
+    if (modeChanged) {
+      try {
+        await tauri.setApiMode('byo');
+        // Restart gateway to switch provider config
+        setSwitching(true);
+        try { await tauri.stopGateway(); } catch { /* ok */ }
+        setGatewayStatus({ type: 'starting' });
+        const info = await tauri.startGateway();
+        setGatewayStatus({ type: 'running', info });
+      } catch (err) {
+        console.error('Failed to switch to BYO:', err);
+      } finally {
+        setSwitching(false);
+      }
+    }
+  };
+
+  // Determine current display label
+  const getDisplayLabel = () => {
+    if (switching) return 'Switching…';
+    if (apiMode === 'byo') {
+      return BYO_PROVIDERS[provider]?.name || provider;
+    }
+    return MANAGED_MODELS.find((m) => m.id === currentModel)?.name || currentModel;
+  };
+
+  const getDisplaySublabel = () => {
+    if (switching) return '';
+    if (apiMode === 'byo') return 'your key';
+    return '';
+  };
+
+  // Only show dropdown if there's more than one section to choose from
+  const hasMultipleOptions = hasLicenseKey || hasApiKey;
+
+  // If nothing is configured at all, show a simple label
+  if (!hasMultipleOptions && !hasLicenseKey && !hasApiKey) {
     return (
       <div className="flex items-center gap-1.5 text-[12px] text-white/30">
         <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-        {displayName}
-        <span className="text-white/15">·</span>
-        <span className="text-white/20">your API key</span>
+        {getDisplayLabel()}
       </div>
     );
   }
 
-  // Managed mode: interactive model selector dropdown
-  const selected = MODELS.find((m) => m.id === currentModel) || MODELS[0];
+  const sublabel = getDisplaySublabel();
 
   return (
     <div ref={dropdownRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-[12px] text-white/30 hover:text-white/50 transition-all"
+        onClick={() => !switching && setOpen(!open)}
+        className={`flex items-center gap-1 text-[12px] text-white/30 hover:text-white/50 transition-all ${switching ? 'opacity-50 cursor-wait' : ''}`}
+        disabled={switching}
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-        {selected.name}
+        <span className={`w-1.5 h-1.5 rounded-full ${switching ? 'bg-yellow-400/60 animate-pulse' : 'bg-white/20'}`} />
+        {getDisplayLabel()}
+        {sublabel && (
+          <>
+            <span className="text-white/15">·</span>
+            <span className="text-white/20">{sublabel}</span>
+          </>
+        )}
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-56 py-1 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-2xl z-50">
-          {MODELS.map((model) => (
-            <button
-              key={model.id}
-              type="button"
-              onClick={() => handleSelect(model.id)}
-              className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between ${
-                model.id === currentModel
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/60 hover:bg-white/5 hover:text-white/80'
-              }`}
-            >
-              <span className="text-[13px]">{model.name}</span>
-              <span className="text-[11px] text-white/25">{model.provider}</span>
-            </button>
-          ))}
+        <div className="absolute bottom-full left-0 mb-2 w-64 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-2xl z-50 overflow-hidden">
+
+          {/* ── Managed models section ── */}
+          {hasLicenseKey && (
+            <>
+              <div className="px-3 pt-2.5 pb-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-white/25">SimplestClaw</span>
+              </div>
+              {MANAGED_MODELS.map((model) => (
+                <button
+                  key={model.id}
+                  type="button"
+                  onClick={() => handleSelectManaged(model.id)}
+                  className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between ${
+                    apiMode === 'managed' && model.id === currentModel
+                      ? 'bg-white/10 text-white'
+                      : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                  }`}
+                >
+                  <span className="text-[13px]">{model.name}</span>
+                  <span className="text-[11px] text-white/25">{model.provider}</span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* ── BYO API key section ── */}
+          {hasApiKey && (
+            <>
+              {hasLicenseKey && <div className="mx-3 my-1 border-t border-white/[0.06]" />}
+              <div className="px-3 pt-2.5 pb-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-white/25">Your API Key</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSelectByo}
+                className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between ${
+                  apiMode === 'byo'
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                }`}
+              >
+                <span className="text-[13px]">{BYO_PROVIDERS[provider]?.model || 'Your model'}</span>
+                <span className="text-[11px] text-white/25">{BYO_PROVIDERS[provider]?.name || provider}</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
