@@ -128,19 +128,6 @@ function ModelIndicator() {
     return '';
   };
 
-  // Only show dropdown if there's more than one section to choose from
-  const hasMultipleOptions = hasLicenseKey || hasApiKey;
-
-  // If nothing is configured at all, show a simple label
-  if (!hasMultipleOptions && !hasLicenseKey && !hasApiKey) {
-    return (
-      <div className="flex items-center gap-1.5 text-[12px] text-white/30">
-        <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-        {getDisplayLabel()}
-      </div>
-    );
-  }
-
   const sublabel = getDisplaySublabel();
 
   return (
@@ -163,52 +150,63 @@ function ModelIndicator() {
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-64 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-2xl z-50 overflow-hidden">
+        <div className="absolute bottom-full left-0 mb-2 w-72 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-2xl z-50 overflow-hidden">
 
           {/* ── Managed models section ── */}
-          {hasLicenseKey && (
-            <>
-              <div className="px-3 pt-2.5 pb-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-white/25">SimplestClaw</span>
-              </div>
-              {MANAGED_MODELS.map((model) => (
-                <button
-                  key={model.id}
-                  type="button"
-                  onClick={() => handleSelectManaged(model.id)}
-                  className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between ${
-                    apiMode === 'managed' && model.id === currentModel
-                      ? 'bg-white/10 text-white'
-                      : 'text-white/60 hover:bg-white/5 hover:text-white/80'
-                  }`}
-                >
-                  <span className="text-[13px]">{model.name}</span>
-                  <span className="text-[11px] text-white/25">{model.provider}</span>
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* ── BYO API key section ── */}
-          {hasApiKey && (
-            <>
-              {hasLicenseKey && <div className="mx-3 my-1 border-t border-white/[0.06]" />}
-              <div className="px-3 pt-2.5 pb-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-white/25">Your API Key</span>
-              </div>
+          <div className="px-3 pt-2.5 pb-1.5">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-white/25">SimplestClaw</span>
+          </div>
+          {hasLicenseKey ? (
+            MANAGED_MODELS.map((model) => (
               <button
+                key={model.id}
                 type="button"
-                onClick={handleSelectByo}
+                onClick={() => handleSelectManaged(model.id)}
                 className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between ${
-                  apiMode === 'byo'
+                  apiMode === 'managed' && model.id === currentModel
                     ? 'bg-white/10 text-white'
                     : 'text-white/60 hover:bg-white/5 hover:text-white/80'
                 }`}
               >
-                <span className="text-[13px]">{BYO_PROVIDERS[provider]?.model || 'Your model'}</span>
-                <span className="text-[11px] text-white/25">{BYO_PROVIDERS[provider]?.name || provider}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px]">{model.name}</span>
+                  {model.tier === 'ultra' && (
+                    <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400">ULTRA</span>
+                  )}
+                </div>
+                <span className="text-[11px] text-white/25">{model.provider}</span>
               </button>
-            </>
+            ))
+          ) : (
+            <div className="px-3 py-2.5 text-[12px] text-white/25">
+              <span>Sign in to use managed models</span>
+              <span className="block text-[11px] text-white/15 mt-0.5">Settings → Sign in</span>
+            </div>
+          )}
+
+          {/* ── BYO API key section ── */}
+          <div className="mx-3 my-1 border-t border-white/[0.06]" />
+          <div className="px-3 pt-2.5 pb-1.5">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-white/25">Your API Key</span>
+          </div>
+          {hasApiKey ? (
+            <button
+              type="button"
+              onClick={handleSelectByo}
+              className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between ${
+                apiMode === 'byo'
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+              }`}
+            >
+              <span className="text-[13px]">{BYO_PROVIDERS[provider]?.model || 'Your model'}</span>
+              <span className="text-[11px] text-white/25">{BYO_PROVIDERS[provider]?.name || provider}</span>
+            </button>
+          ) : (
+            <div className="px-3 py-2.5 text-[12px] text-white/25">
+              <span>Add your own API key</span>
+              <span className="block text-[11px] text-white/15 mt-0.5">Settings → API Key</span>
+            </div>
           )}
         </div>
       )}
