@@ -320,14 +320,14 @@ function BillingSection({
       id: 'pro',
       name: 'Pro',
       price: '$20 / month',
-      features: ['500 messages per day', '5 models incl. Haiku 4.5, Gemini 3'],
+      features: ['200 messages per day', '5 models incl. Haiku 4.5, Gemini 3'],
       checkColor: 'text-emerald-500/60',
     },
     {
       id: 'ultra',
       name: 'Ultra',
-      price: '$200 / month',
-      features: ['2,000 messages per day', 'All 7 models incl. Opus 4.5, GPT-5.2'],
+      price: '$150 / month',
+      features: ['2,000 messages per day', '7 models incl. Opus 4.5, GPT-5.2'],
       checkColor: 'text-violet-500/60',
     },
   ];
@@ -469,7 +469,7 @@ function BillingSection({
                         Loading...
                       </>
                     ) : (
-                      'Ultra — $200/mo'
+                      'Ultra — $150/mo'
                     )}
                   </button>
                 </div>
@@ -538,7 +538,7 @@ function UsageSection({ account }: { account: AccountData }) {
             </div>
             <p className="text-[12px] text-white/30 mt-1.5">
               Resets daily at midnight UTC.
-              {account.subscription.plan === 'free' && ' Upgrade to Pro for 500 messages/day.'}
+              {account.subscription.plan === 'free' && ' Upgrade to Pro for 200 messages/day.'}
             </p>
           </div>
 
@@ -577,7 +577,7 @@ function UsageSection({ account }: { account: AccountData }) {
               <p className="text-[12px] text-white/30 mb-1">Available models</p>
               <p className="text-[16px] font-medium">
                 {account.subscription.plan === 'ultra'
-                  ? 'All 7 models'
+                  ? '7 models'
                   : account.subscription.plan === 'pro'
                     ? '5 models'
                     : 'Sonnet 4.5, GPT-5 Mini'}

@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
-  plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
+  plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'ultra')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'cancelled')),
   current_period_start TIMESTAMPTZ,
   current_period_end TIMESTAMPTZ,

@@ -197,7 +197,7 @@ export function createBillingRoutes(config: ProxyConfig) {
     }
 
     // Determine target plan from request body (default: pro)
-    const body = await c.req.json<{ plan?: string }>().catch(() => ({}));
+    const body = await c.req.json<{ plan?: string }>().catch(() => ({} as { plan?: string }));
     const targetPlan = body.plan === 'ultra' ? 'ultra' : 'pro';
 
     const priceId = targetPlan === 'ultra' ? config.stripeUltraPriceId : config.stripeProPriceId;
@@ -499,7 +499,7 @@ export function createBillingRoutes(config: ProxyConfig) {
       (row) => new Date(row.created_at) >= todayStart,
     ).length;
 
-    const dailyLimits: Record<string, number> = { free: 10, pro: 500, ultra: 2000 };
+    const dailyLimits: Record<string, number> = { free: 10, pro: 200, ultra: 2000 };
     const dailyLimit = dailyLimits[subscription.plan] ?? 10;
 
     return c.json({

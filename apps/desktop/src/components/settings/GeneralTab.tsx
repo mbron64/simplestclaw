@@ -776,7 +776,7 @@ function AccountSection({ apiMode }: { apiMode: ApiMode }) {
               setPlan(data.subscription?.plan || 'free');
               setUsage({
                 messagesUsed: data.usage?.totalMessages || 0,
-                limit: data.subscription?.plan === 'pro' ? 500 : 10,
+                limit: { free: 10, pro: 200, ultra: 2000 }[data.subscription?.plan as string] ?? 10,
               });
             }
           } catch {
@@ -825,8 +825,8 @@ function AccountSection({ apiMode }: { apiMode: ApiMode }) {
                 <CreditCard className="w-4 h-4" />
                 Plan
               </span>
-              <span className={`text-[14px] font-medium ${plan === 'pro' ? 'text-blue-400' : 'text-white/80'}`}>
-                {plan === 'pro' ? 'Pro' : 'Free'}
+              <span className={`text-[14px] font-medium ${plan === 'ultra' ? 'text-violet-400' : plan === 'pro' ? 'text-blue-400' : 'text-white/80'}`}>
+                {plan === 'ultra' ? 'Ultra' : plan === 'pro' ? 'Pro' : 'Free'}
               </span>
             </div>
 
@@ -850,6 +850,16 @@ function AccountSection({ apiMode }: { apiMode: ApiMode }) {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[13px] font-medium text-blue-400 hover:bg-blue-500/20 transition-all"
                 >
                   Upgrade to Pro
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+              {plan === 'pro' && (
+                <button
+                  type="button"
+                  onClick={() => shellOpen('https://simplestclaw.com/settings?tab=billing')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-[13px] font-medium text-violet-400 hover:bg-violet-500/20 transition-all"
+                >
+                  Upgrade to Ultra
                   <ExternalLink className="w-3 h-3" />
                 </button>
               )}

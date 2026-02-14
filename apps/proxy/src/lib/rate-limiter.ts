@@ -2,7 +2,7 @@
  * In-memory daily message rate limiter.
  *
  * Tracks per-user daily message counts using a Map keyed by "userId:YYYY-MM-DD".
- * Limits: Free = 10 messages/day, Pro = 500 messages/day, Ultra = 2000 messages/day.
+ * Limits: Free = 10 messages/day, Pro = 200 messages/day, Ultra = 2000 messages/day.
  *
  * Why in-memory:
  * - Single-process on Railway, no need for distributed state
@@ -13,7 +13,7 @@
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 10,
-  pro: 500,
+  pro: 200,
   ultra: 2000,
 };
 

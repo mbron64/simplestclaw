@@ -159,7 +159,7 @@ export function getModelsByProvider(): Record<Provider, ModelDefinition[]> {
 /** Plan daily message limits */
 export const PLAN_LIMITS: Record<Plan, number> = {
   free: 10,
-  pro: 500,
+  pro: 200,
   ultra: 2000,
 };
 

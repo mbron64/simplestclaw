@@ -46,8 +46,8 @@ const PLANS = [
     description: 'Max power.',
     includes: 'Pro',
     features: [
-      '2,500 messages per day',
-      'All 7 models: + Opus 4.5, GPT-5.2',
+      '2,000 messages per day',
+      '7 models: + Opus 4.5, GPT-5.2',
       'Early access to new features',
     ],
     cta: 'Upgrade to Ultra',
@@ -149,7 +149,7 @@ function FAQ() {
     },
     {
       q: 'What models are available?',
-      a: 'Free users get Claude Sonnet 4.5 and GPT-5 Mini. Pro unlocks 5 models including Haiku 4.5, Gemini 3 Pro, and Gemini 3 Flash. Ultra gives you all 7 models including the most powerful: Claude Opus 4.5 and GPT-5.2.',
+      a: 'Free users get Claude Sonnet 4.5 and GPT-5 Mini. Pro unlocks 5 models including Haiku 4.5, Gemini 3 Pro, and Gemini 3 Flash. Ultra gives you 7 models including the most powerful: Claude Opus 4.5 and GPT-5.2.',
     },
     {
       q: 'Can I switch between managed and BYO mode?',
