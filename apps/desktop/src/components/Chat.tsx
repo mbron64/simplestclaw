@@ -28,7 +28,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 // Model indicator shown below the input box (like Cursor)
 function ModelIndicator() {
   const [open, setOpen] = useState(false);
-  const [currentModel, setCurrentModel] = useState(MODELS[0].id);
+  const [currentModel, setCurrentModel] = useState<string>(MODELS[0].id);
   const [apiMode, setApiMode] = useState<string>('byo');
   const [provider, setProvider] = useState<string>('anthropic');
   const dropdownRef = useRef<HTMLDivElement>(null);
