@@ -203,7 +203,7 @@ function ContinueButton({
 // ── Managed Mode: Browser-based Sign In ───────────────────────────────
 function ManagedSignIn({ onBack }: { onBack: () => void }) {
   const { setGatewayStatus, setApiKeyConfigured, setScreen } = useAppStore();
-  const [waiting, setWaiting] = useState(false);
+  const [waiting, setWaiting] = useState(true);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualKey, setManualKey] = useState('');
   const [manualEmail, setManualEmail] = useState('');
@@ -545,10 +545,17 @@ export function Onboarding() {
               </p>
             </div>
 
-            {/* Primary: Sign in */}
+            {/* Primary: Sign in -- opens browser directly */}
             <button
               type="button"
-              onClick={() => setPath('managed-signin')}
+              onClick={async () => {
+                setPath('managed-signin');
+                try {
+                  await shellOpen(AUTH_URL);
+                } catch (err) {
+                  console.error('Failed to open browser:', err);
+                }
+              }}
               className="w-full py-4 rounded-xl bg-white text-black text-[16px] font-medium hover:bg-white/90 transition-all mb-8 flex items-center justify-center gap-2"
             >
               Sign in
