@@ -1,6 +1,14 @@
 import { Hono } from 'hono';
 import { proxy } from 'hono/proxy';
 import type { ProxyConfig } from '../lib/config.js';
+import { resolveLicenseKey, type CachedLicense } from '../lib/license-cache.js';
+import { checkAndIncrement, type RateLimitResult } from '../lib/rate-limiter.js';
+import {
+  extractAnthropicUsage,
+  extractOpenAIUsage,
+  extractGoogleUsage,
+  logUsage,
+} from '../lib/usage-logger.js';
 
 /**
  * Provider proxy routes.
@@ -10,15 +18,45 @@ import type { ProxyConfig } from '../lib/config.js';
  * actually the user's license key. We validate it, swap for the real provider key,
  * and forward the request. Streaming responses pass through transparently.
  *
+ * Security layers (applied to every request):
+ *  1. License key validation -- verified against Supabase (cached 5 min)
+ *  2. Rate limiting -- daily message limits enforced per plan
+ *  3. Model access control -- Free users restricted to allowed models
+ *  4. Usage logging -- token counts logged async after response
+ *
  * Endpoints:
  *   POST /v1/anthropic/v1/messages  -- Anthropic Messages API
  *   POST /v1/openai/v1/chat/completions  -- OpenAI Chat Completions API
+ *   POST /v1/google/*  -- Google Gemini API
  */
 
 // Upstream provider base URLs
 const ANTHROPIC_BASE = 'https://api.anthropic.com';
 const OPENAI_BASE = 'https://api.openai.com';
 const GOOGLE_BASE = 'https://generativelanguage.googleapis.com';
+
+/**
+ * Sanitize the upstream path after stripping our prefix.
+ * Prevents path traversal attacks (e.g. /v1/anthropic/../../admin).
+ * Returns null if the path is malicious.
+ */
+function sanitizeUpstreamPath(rawPath: string, prefix: string): string | null {
+  const stripped = rawPath.replace(prefix, '');
+  // Reject path traversal attempts and double-slash tricks
+  if (stripped.includes('..') || stripped.includes('//')) {
+    return null;
+  }
+  // Ensure it starts with /
+  return stripped.startsWith('/') ? stripped : `/${stripped}`;
+}
+
+// Models that Free plan users can access
+// Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
+const FREE_MODELS = new Set([
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-5',  // alias
+  'gpt-5-mini',
+]);
 
 /**
  * Extract the license key from the Authorization header.
@@ -39,6 +77,230 @@ function extractLicenseKey(c: { req: { header: (name: string) => string | undefi
   return null;
 }
 
+/**
+ * Try to extract the model name from the request body.
+ * IMPORTANT: Clones the request before reading to avoid consuming the body stream,
+ * which is needed later by proxy() to forward the request upstream.
+ * Returns null if the body can't be parsed or doesn't contain a model field.
+ */
+async function extractModelFromBody(c: { req: { raw: Request } }): Promise<string | null> {
+  try {
+    // Clone so the original body stream remains unconsumed for proxy()
+    const cloned = c.req.raw.clone();
+    const body = await cloned.json();
+    return (body.model as string) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if a model is allowed for a given plan.
+ * Free plan: only specific models. Pro plan: all models.
+ */
+function isModelAllowed(model: string | null, plan: string): boolean {
+  if (plan === 'pro') return true;
+  if (!model) return true; // Can't determine model, allow (provider will reject if invalid)
+
+  // Check if the model matches any free model (prefix match for versioned model names)
+  for (const freeModel of FREE_MODELS) {
+    if (model === freeModel || model.startsWith(freeModel)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Add rate limit headers to a Response.
+ */
+function addRateLimitHeaders(headers: Headers, rateLimit: RateLimitResult): void {
+  headers.set('X-RateLimit-Limit', String(rateLimit.limit));
+  headers.set('X-RateLimit-Remaining', String(rateLimit.remaining));
+  headers.set('X-RateLimit-Reset', String(rateLimit.resetAt));
+}
+
+/**
+ * Validate the license key and check rate limits.
+ * Returns the license info + rate limit result, or a Response to return early (error).
+ */
+async function validateAndCheckLimits(
+  config: ProxyConfig,
+  licenseKey: string,
+  model: string | null,
+): Promise<
+  | { ok: true; license: CachedLicense; rateLimit: RateLimitResult }
+  | { ok: false; response: Response }
+> {
+  // 1. Validate license key
+  const license = await resolveLicenseKey(config, licenseKey);
+  if (!license) {
+    return {
+      ok: false,
+      response: Response.json(
+        {
+          error: {
+            message: 'Invalid or inactive license key. Please sign in again at simplestclaw.com.',
+            type: 'authentication_error',
+          },
+        },
+        { status: 401 },
+      ),
+    };
+  }
+
+  // 2. Check model access
+  if (!isModelAllowed(model, license.plan)) {
+    const upgradeMsg = license.plan === 'free'
+      ? ' Upgrade to Pro at simplestclaw.com/settings for access to all models.'
+      : '';
+    return {
+      ok: false,
+      response: Response.json(
+        {
+          error: {
+            message: `Model "${model}" is not available on the ${license.plan} plan.${upgradeMsg}`,
+            type: 'permission_error',
+          },
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  // 3. Check rate limit
+  const rateLimit = checkAndIncrement(license.userId, license.plan);
+  if (!rateLimit.allowed) {
+    const upgradeMsg = license.plan === 'free'
+      ? ' Upgrade to Pro for 500 messages/day at simplestclaw.com/settings.'
+      : '';
+    const errorResponse = Response.json(
+      {
+        error: {
+          message: `Daily message limit reached (${rateLimit.limit}/${rateLimit.limit}).${upgradeMsg}`,
+          type: 'rate_limit_error',
+        },
+      },
+      { status: 429 },
+    );
+    addRateLimitHeaders(errorResponse.headers, rateLimit);
+    return { ok: false, response: errorResponse };
+  }
+
+  return { ok: true, license, rateLimit };
+}
+
+/**
+ * Allowlist of response headers to forward from upstream providers.
+ * Prevents leaking provider-internal headers to the client.
+ */
+const ALLOWED_RESPONSE_HEADERS = new Set([
+  'content-type',
+  'content-length',
+  'transfer-encoding',
+  'content-encoding',
+  'cache-control',
+  'x-ratelimit-limit',
+  'x-ratelimit-remaining',
+  'x-ratelimit-reset',
+  'retry-after',
+  'x-request-id',
+  'request-id',
+]);
+
+/** Filter response headers through the allowlist */
+function filterResponseHeaders(upstream: Headers): Headers {
+  const filtered = new Headers();
+  for (const [key, value] of upstream.entries()) {
+    if (ALLOWED_RESPONSE_HEADERS.has(key.toLowerCase())) {
+      filtered.set(key, value);
+    }
+  }
+  return filtered;
+}
+
+/**
+ * Intercept and clone a streaming/non-streaming response to extract usage data,
+ * then log it asynchronously. Returns the original response untouched.
+ */
+function interceptAndLogUsage(
+  config: ProxyConfig,
+  response: Response,
+  userId: string,
+  provider: string,
+  model: string,
+  rateLimit: RateLimitResult,
+  extractUsage: (body: string) => { inputTokens: number; outputTokens: number } | null,
+): Response {
+  // Filter upstream headers through allowlist, then add our rate limit headers
+  const headers = filterResponseHeaders(response.headers);
+  addRateLimitHeaders(headers, rateLimit);
+
+  // If the response has no body or is an error, just pass through
+  if (!response.body || !response.ok) {
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const isStreaming = contentType.includes('text/event-stream');
+
+  if (isStreaming) {
+    // For streaming responses, we tee the stream:
+    // one leg goes to the client, the other we read to extract usage
+    const [clientStream, logStream] = response.body.tee();
+
+    // Read the log stream in the background to extract usage
+    const reader = logStream.getReader();
+    const chunks: Uint8Array[] = [];
+
+    const readAll = async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) chunks.push(value);
+        }
+        const decoder = new TextDecoder();
+        const fullBody = chunks.map((c) => decoder.decode(c, { stream: true })).join('') + decoder.decode();
+        const usage = extractUsage(fullBody);
+        if (usage) {
+          logUsage(config, userId, provider, model, usage);
+        }
+      } catch (err) {
+        console.error(`[proxy] Error reading stream for usage logging:`, err);
+      }
+    };
+    readAll();
+
+    return new Response(clientStream, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  // Non-streaming: clone the response, read the clone for usage
+  const cloned = response.clone();
+  cloned.text().then((body) => {
+    const usage = extractUsage(body);
+    if (usage) {
+      logUsage(config, userId, provider, model, usage);
+    }
+  }).catch((err) => {
+    console.error(`[proxy] Error reading response for usage logging:`, err);
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export function createProxyRoutes(config: ProxyConfig) {
   const app = new Hono();
 
@@ -56,16 +318,25 @@ export function createProxyRoutes(config: ProxyConfig) {
       return c.json({ error: { message: 'Anthropic provider not configured' } }, 503);
     }
 
-    // TODO: Validate license key against Supabase (Phase 1b/1c)
-    // TODO: Check usage limits (Phase 1e)
+    // Extract model from body for access control
+    const model = await extractModelFromBody(c);
+
+    // Validate license + check rate limits + model access
+    const check = await validateAndCheckLimits(config, licenseKey, model);
+    if (!check.ok) {
+      return check.response;
+    }
 
     // Strip our prefix to get the real Anthropic path
     // /v1/anthropic/v1/messages -> /v1/messages
-    const upstreamPath = c.req.path.replace('/v1/anthropic', '');
+    const upstreamPath = sanitizeUpstreamPath(c.req.path, '/v1/anthropic');
+    if (!upstreamPath) {
+      return c.json({ error: { message: 'Invalid request path' } }, 400);
+    }
     const upstreamUrl = `${ANTHROPIC_BASE}${upstreamPath}`;
 
     // Forward with real API key, preserving all other headers
-    return proxy(upstreamUrl, {
+    const response = await proxy(upstreamUrl, {
       ...c.req,
       headers: {
         ...c.req.header(),
@@ -74,6 +345,17 @@ export function createProxyRoutes(config: ProxyConfig) {
         'host': 'api.anthropic.com',
       },
     });
+
+    // Log usage async (non-blocking)
+    return interceptAndLogUsage(
+      config,
+      response as unknown as Response,
+      check.license.userId,
+      'anthropic',
+      model || 'unknown',
+      check.rateLimit,
+      extractAnthropicUsage,
+    );
   });
 
   // ── OpenAI proxy ─────────────────────────────────────────────────
@@ -90,15 +372,24 @@ export function createProxyRoutes(config: ProxyConfig) {
       return c.json({ error: { message: 'OpenAI provider not configured' } }, 503);
     }
 
-    // TODO: Validate license key against Supabase (Phase 1b/1c)
-    // TODO: Check usage limits (Phase 1e)
+    // Extract model from body for access control
+    const model = await extractModelFromBody(c);
+
+    // Validate license + check rate limits + model access
+    const check = await validateAndCheckLimits(config, licenseKey, model);
+    if (!check.ok) {
+      return check.response;
+    }
 
     // Strip our prefix to get the real OpenAI path
     // /v1/openai/v1/chat/completions -> /v1/chat/completions
-    const upstreamPath = c.req.path.replace('/v1/openai', '');
+    const upstreamPath = sanitizeUpstreamPath(c.req.path, '/v1/openai');
+    if (!upstreamPath) {
+      return c.json({ error: { message: 'Invalid request path' } }, 400);
+    }
     const upstreamUrl = `${OPENAI_BASE}${upstreamPath}`;
 
-    return proxy(upstreamUrl, {
+    const response = await proxy(upstreamUrl, {
       ...c.req,
       headers: {
         ...c.req.header(),
@@ -106,6 +397,17 @@ export function createProxyRoutes(config: ProxyConfig) {
         'host': 'api.openai.com',
       },
     });
+
+    // Log usage async (non-blocking)
+    return interceptAndLogUsage(
+      config,
+      response as unknown as Response,
+      check.license.userId,
+      'openai',
+      model || 'unknown',
+      check.rateLimit,
+      extractOpenAIUsage,
+    );
   });
 
   // ── Google proxy ─────────────────────────────────────────────────
@@ -119,15 +421,24 @@ export function createProxyRoutes(config: ProxyConfig) {
       return c.json({ error: { message: 'Google provider not configured' } }, 503);
     }
 
-    // TODO: Validate license key against Supabase (Phase 1b/1c)
-    // TODO: Check usage limits (Phase 1e)
+    // Extract model from body for access control
+    const model = await extractModelFromBody(c);
 
-    const upstreamPath = c.req.path.replace('/v1/google', '');
+    // Validate license + check rate limits + model access
+    const check = await validateAndCheckLimits(config, licenseKey, model);
+    if (!check.ok) {
+      return check.response;
+    }
+
+    const upstreamPath = sanitizeUpstreamPath(c.req.path, '/v1/google');
+    if (!upstreamPath) {
+      return c.json({ error: { message: 'Invalid request path' } }, 400);
+    }
     const url = new URL(`${GOOGLE_BASE}${upstreamPath}`);
     // Google uses ?key= query parameter for auth
     url.searchParams.set('key', config.googleApiKey);
 
-    return proxy(url.toString(), {
+    const response = await proxy(url.toString(), {
       ...c.req,
       headers: {
         ...c.req.header(),
@@ -136,6 +447,17 @@ export function createProxyRoutes(config: ProxyConfig) {
         'host': 'generativelanguage.googleapis.com',
       },
     });
+
+    // Log usage async (non-blocking)
+    return interceptAndLogUsage(
+      config,
+      response as unknown as Response,
+      check.license.userId,
+      'google',
+      model || 'unknown',
+      check.rateLimit,
+      extractGoogleUsage,
+    );
   });
 
   return app;

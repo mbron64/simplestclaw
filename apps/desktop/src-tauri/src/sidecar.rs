@@ -192,10 +192,12 @@ impl SidecarManager {
                 // Write openclaw.json with models.providers pointing at our proxy.
                 // The license key is used as the "apiKey" for the custom provider.
                 let license_key = config.license_key.as_deref().unwrap_or("");
-                let model = config.selected_model.as_deref().unwrap_or("claude-sonnet-4-20250514");
+                let model = config.selected_model.as_deref().unwrap_or("claude-sonnet-4-5-20250929");
                 let openclaw_config = write_managed_openclaw_config(license_key, model)?;
                 cmd.env("OPENCLAW_CONFIG_PATH", &openclaw_config);
-                // Set a dummy API key so openclaw doesn't complain about missing auth
+                // In managed mode, requests route through the SimplestClaw proxy which
+                // swaps in the real provider API key. We set a placeholder here because
+                // OpenClaw requires the env var to be present at startup.
                 cmd.env("ANTHROPIC_API_KEY", "managed-via-proxy");
             }
             ApiMode::Byo => {
@@ -612,6 +614,8 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
     // Determine the provider prefix and API type from the model name
     let (provider_name, _api_type) = if model.contains("gpt") || model.contains("o1") || model.contains("o3") {
         ("simplestclaw-openai", "openai-completions")
+    } else if model.contains("gemini") {
+        ("simplestclaw-google", "openai-completions")
     } else {
         // Default to Anthropic (Claude models)
         ("simplestclaw-anthropic", "anthropic-messages")
@@ -619,6 +623,7 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
 
     let proxy_base = "https://proxy.simplestclaw.com";
 
+    // Model IDs must stay in sync with packages/models/src/index.ts
     let config_json = format!(
         r#"{{
   "models": {{
@@ -629,8 +634,9 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
         "apiKey": "{license_key}",
         "api": "anthropic-messages",
         "models": [
-          {{ "id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4" }},
-          {{ "id": "claude-opus-4-20250514", "name": "Claude Opus 4" }}
+          {{ "id": "claude-opus-4-6", "name": "Claude Opus 4.6" }},
+          {{ "id": "claude-sonnet-4-5-20250929", "name": "Claude Sonnet 4.5" }},
+          {{ "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" }}
         ]
       }},
       "simplestclaw-openai": {{
@@ -638,8 +644,17 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
         "apiKey": "{license_key}",
         "api": "openai-completions",
         "models": [
-          {{ "id": "gpt-4o", "name": "GPT-4o" }},
-          {{ "id": "gpt-4o-mini", "name": "GPT-4o Mini" }}
+          {{ "id": "gpt-5.2", "name": "GPT-5.2" }},
+          {{ "id": "gpt-5-mini", "name": "GPT-5 Mini" }}
+        ]
+      }},
+      "simplestclaw-google": {{
+        "baseUrl": "{proxy_base}/v1/google",
+        "apiKey": "{license_key}",
+        "api": "openai-completions",
+        "models": [
+          {{ "id": "gemini-3-pro-preview", "name": "Gemini 3 Pro" }},
+          {{ "id": "gemini-3-flash-preview", "name": "Gemini 3 Flash" }}
         ]
       }}
     }}

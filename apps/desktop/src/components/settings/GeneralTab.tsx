@@ -794,28 +794,9 @@ function AccountSection({ apiMode }: { apiMode: ApiMode }) {
 
   if (apiMode !== 'managed') return null;
 
-  const handleManageSubscription = async () => {
-    try {
-      const config = await tauri.getConfig();
-      if (config.licenseKey) {
-        // Try opening Stripe portal via proxy; fall back to website pricing page
-        const portalUrl = `${PROXY_URL}/billing/portal?license_key=${encodeURIComponent(config.licenseKey)}`;
-        try {
-          const res = await fetch(portalUrl, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
-          if (res.ok || res.status === 302 || res.status === 303) {
-            shellOpen(portalUrl);
-            return;
-          }
-        } catch {
-          // Proxy not reachable, fall through
-        }
-      }
-      // Fallback: open the website pricing page
-      shellOpen('https://simplestclaw.com/pricing');
-    } catch (err) {
-      console.error('Failed to open billing portal:', err);
-      shellOpen('https://simplestclaw.com/pricing');
-    }
+  const handleManageSubscription = () => {
+    // Open the web settings/billing page where users can manage their subscription
+    shellOpen('https://simplestclaw.com/settings?tab=billing');
   };
 
   return (
@@ -957,7 +938,7 @@ export function GeneralTab() {
         const config = await tauri.getConfig();
         setProvider(config.provider || 'anthropic');
         setApiMode(config.apiMode || 'byo');
-        if (config.anthropicApiKey) {
+        if (config.hasApiKey) {
           const placeholder = PROVIDER_INFO[config.provider || 'anthropic'].placeholder;
           setApiKey(`${placeholder.split('...')[0]}••••••••••••••••••••••••••••••••`);
         }

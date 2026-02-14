@@ -39,7 +39,14 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self' customprotocol: asset:",
+        "script-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost https://proxy.simplestclaw.com https://*.supabase.co ws://localhost:* http://localhost:*",
+        "img-src": "'self' asset: http://asset.localhost blob: data:",
+        "style-src": "'unsafe-inline' 'self' https://fonts.googleapis.com",
+        "font-src": "https://fonts.gstatic.com"
+      }
     }
   },
   "plugins": {

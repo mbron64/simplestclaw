@@ -31,6 +31,9 @@ export interface ProxyConfig {
   /** Stripe webhook signing secret */
   stripeWebhookSecret: string;
 
+  /** Stripe Price ID for the Pro plan */
+  stripeProPriceId: string;
+
   /** Public URL of this proxy service (for OAuth redirect) */
   proxyUrl: string;
 
@@ -50,18 +53,33 @@ function optionalEnv(name: string, fallback: string): string {
   return process.env[name] || fallback;
 }
 
+/**
+ * In production, require critical secrets so the proxy refuses to start
+ * without a fully-configured auth + billing backend.
+ * In development, fall back to empty strings for local testing.
+ */
+function envForMode(name: string, nodeEnv: string): string {
+  if (nodeEnv === 'production') {
+    return requireEnv(name);
+  }
+  return optionalEnv(name, '');
+}
+
 export function loadConfig(): ProxyConfig {
+  const nodeEnv = optionalEnv('NODE_ENV', 'development');
+
   return {
     port: Number.parseInt(optionalEnv('PORT', '3001'), 10),
-    anthropicApiKey: optionalEnv('ANTHROPIC_API_KEY', ''),
+    anthropicApiKey: envForMode('ANTHROPIC_API_KEY', nodeEnv),
     openaiApiKey: optionalEnv('OPENAI_API_KEY', ''),
     googleApiKey: optionalEnv('GOOGLE_API_KEY', ''),
-    supabaseUrl: optionalEnv('SUPABASE_URL', ''),
-    supabaseServiceKey: optionalEnv('SUPABASE_SERVICE_ROLE_KEY', ''),
-    supabaseAnonKey: optionalEnv('SUPABASE_ANON_KEY', ''),
-    stripeSecretKey: optionalEnv('STRIPE_SECRET_KEY', ''),
-    stripeWebhookSecret: optionalEnv('STRIPE_WEBHOOK_SECRET', ''),
+    supabaseUrl: envForMode('SUPABASE_URL', nodeEnv),
+    supabaseServiceKey: envForMode('SUPABASE_SERVICE_ROLE_KEY', nodeEnv),
+    supabaseAnonKey: envForMode('SUPABASE_ANON_KEY', nodeEnv),
+    stripeSecretKey: envForMode('STRIPE_SECRET_KEY', nodeEnv),
+    stripeWebhookSecret: envForMode('STRIPE_WEBHOOK_SECRET', nodeEnv),
+    stripeProPriceId: envForMode('STRIPE_PRO_PRICE_ID', nodeEnv),
     proxyUrl: optionalEnv('PROXY_URL', 'https://proxy.simplestclaw.com'),
-    nodeEnv: optionalEnv('NODE_ENV', 'development'),
+    nodeEnv,
   };
 }

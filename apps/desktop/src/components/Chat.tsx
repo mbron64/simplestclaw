@@ -10,17 +10,24 @@ import { useAppStore } from '../lib/store';
 import { tauri } from '../lib/tauri';
 
 // Available models for the selector
+// Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
 const MODELS = [
-  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'Anthropic' },
-  { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', provider: 'Anthropic' },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+  // Anthropic
+  { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'Anthropic' },
+  { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
+  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', provider: 'Anthropic' },
+  // OpenAI
+  { id: 'gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
+  { id: 'gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },
+  // Google
+  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', provider: 'Google' },
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Google' },
 ] as const;
 
 // Provider display names for BYO mode
 const PROVIDER_NAMES: Record<string, string> = {
   anthropic: 'Claude',
-  openai: 'GPT-4o',
+  openai: 'GPT-5',
   google: 'Gemini',
   openrouter: 'OpenRouter',
 };
@@ -174,21 +181,12 @@ export function Chat() {
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
-    console.log(
-      '[Chat] useEffect triggered, gatewayUrl:',
-      gatewayUrl,
-      'gatewayToken:',
-      `${gatewayToken?.substring(0, 10)}...`
-    );
     if (!gatewayUrl || !gatewayToken) {
-      console.log('[Chat] Missing gatewayUrl or gatewayToken, skipping connect');
       return;
     }
 
     // Track if this effect instance is still active (for React Strict Mode)
     let isActive = true;
-
-    console.log('[Chat] Creating OpenClaw client...');
     const client = createOpenClawClient({
       url: gatewayUrl,
       token: gatewayToken,
@@ -197,11 +195,9 @@ export function Chat() {
 
     client
       .on('onStateChange', (state) => {
-        console.log('[Chat] State change:', state, 'isActive:', isActive);
         if (isActive) setConnectionState(state);
       })
       .on('onMessage', (msg) => {
-        console.log('[Chat] Message received:', msg);
         if (isActive) {
           addMessage(msg);
           // Log AI response activity
@@ -223,7 +219,6 @@ export function Chat() {
         }
       })
       .on('onConnect', () => {
-        console.log('[Chat] Connected!');
         addActivityLog({
           operationType: 'gateway',
           details: 'Connected to OpenClaw gateway',

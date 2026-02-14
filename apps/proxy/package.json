@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@simplestclaw/models": "workspace:*",
     "@hono/node-server": "^1.13.0",
     "@supabase/supabase-js": "^2.49.0",
     "dotenv": "^17.3.1",

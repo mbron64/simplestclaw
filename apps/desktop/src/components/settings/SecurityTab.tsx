@@ -92,8 +92,7 @@ export function SecurityTab() {
           setActivityLog(entries);
         }
       } catch (err) {
-        // Activity log commands may not be implemented yet
-        console.log('Activity log not available:', err);
+        console.error('Failed to load activity log:', err);
       }
     };
     loadActivityLog();
@@ -103,7 +102,7 @@ export function SecurityTab() {
     try {
       await tauri.clearActivityLog();
     } catch (err) {
-      // Ignore if not implemented
+      console.error('Failed to clear activity log:', err);
     }
     clearActivityLog();
   };

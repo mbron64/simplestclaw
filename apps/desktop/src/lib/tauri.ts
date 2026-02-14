@@ -6,7 +6,8 @@ export type ApiMode = 'byo' | 'managed';
 
 export interface Config {
   provider: Provider;
-  anthropicApiKey: string | null;
+  /** true if a BYO API key is configured (actual value is NOT exposed for security) */
+  hasApiKey: boolean;
   gatewayPort: number;
   autoStartGateway: boolean;
   apiMode: ApiMode;

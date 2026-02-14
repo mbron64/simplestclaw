@@ -98,15 +98,18 @@ function estimateCostCents(
   outputTokens: number,
 ): number {
   // Rates per million tokens (in cents)
+  // Keep in sync with @simplestclaw/models (packages/models/src/index.ts)
   const rates: Record<string, { input: number; output: number }> = {
     // Anthropic
-    'claude-sonnet-4-20250514': { input: 300, output: 1500 },
-    'claude-opus-4-20250514': { input: 1500, output: 7500 },
+    'claude-opus-4-6': { input: 500, output: 2500 },
+    'claude-sonnet-4-5-20250929': { input: 300, output: 1500 },
+    'claude-haiku-4-5-20251001': { input: 100, output: 500 },
     // OpenAI
-    'gpt-4o': { input: 250, output: 1000 },
-    'gpt-4o-mini': { input: 15, output: 60 },
+    'gpt-5.2': { input: 175, output: 1400 },
+    'gpt-5-mini': { input: 25, output: 200 },
     // Google
-    'gemini-2.5-pro': { input: 125, output: 1000 },
+    'gemini-3-pro-preview': { input: 200, output: 1200 },
+    'gemini-3-flash-preview': { input: 50, output: 300 },
   };
 
   const modelKey = Object.keys(rates).find((k) => model.includes(k));

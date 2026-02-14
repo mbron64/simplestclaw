@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { ProxyConfig } from '../lib/config.js';
 import { getSupabaseClient, getSupabaseAdmin } from '../lib/supabase.js';
+import { checkAuthRateLimit, getClientIp } from '../lib/auth-rate-limiter.js';
 import crypto from 'node:crypto';
 
 /**
@@ -10,6 +11,8 @@ import crypto from 'node:crypto';
  * POST /auth/login      -- Email + password login
  * POST /auth/magic-link -- Passwordless email login
  * GET  /auth/me         -- User profile, subscription, usage
+ *
+ * All public-facing endpoints are rate-limited by IP address.
  */
 
 /** Generate a unique license key */
@@ -18,11 +21,42 @@ function generateLicenseKey(): string {
   return `sclw_${bytes.toString('base64url')}`;
 }
 
+/** Allowed domains for OAuth redirect_to parameter */
+const PROD_REDIRECT_DOMAINS = [
+  'simplestclaw.com',
+  'proxy.simplestclaw.com',
+];
+const DEV_REDIRECT_DOMAINS = [
+  ...PROD_REDIRECT_DOMAINS,
+  'localhost',
+];
+
+/** Validate a redirect URL against the domain allowlist */
+function isAllowedRedirectUrl(url: string, nodeEnv: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const domains = nodeEnv === 'production' ? PROD_REDIRECT_DOMAINS : DEV_REDIRECT_DOMAINS;
+    return domains.some(
+      (domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function createAuthRoutes(config: ProxyConfig) {
   const app = new Hono();
 
   // ── Sign up ───────────────────────────────────────────────────────
   app.post('/auth/signup', async (c) => {
+    // Rate limit: 5 per hour per IP
+    const ip = getClientIp(c);
+    const rateCheck = checkAuthRateLimit(ip, 'signup');
+    if (!rateCheck.allowed) {
+      c.header('Retry-After', String(rateCheck.retryAfterSeconds));
+      return c.json({ error: 'Too many signup attempts. Please try again later.' }, 429);
+    }
+
     const body = await c.req.json<{ email: string; password: string }>();
     if (!body.email || !body.password) {
       return c.json({ error: 'Email and password are required' }, 400);
@@ -35,7 +69,8 @@ export function createAuthRoutes(config: ProxyConfig) {
     });
 
     if (error) {
-      return c.json({ error: error.message }, 400);
+      console.error('[auth] Signup error:', error.message);
+      return c.json({ error: 'Signup failed. The email may already be in use or the password is too weak.' }, 400);
     }
 
     if (!data.user) {
@@ -83,6 +118,14 @@ export function createAuthRoutes(config: ProxyConfig) {
 
   // ── Login ─────────────────────────────────────────────────────────
   app.post('/auth/login', async (c) => {
+    // Rate limit: 10 per 15 minutes per IP
+    const ip = getClientIp(c);
+    const rateCheck = checkAuthRateLimit(ip, 'login');
+    if (!rateCheck.allowed) {
+      c.header('Retry-After', String(rateCheck.retryAfterSeconds));
+      return c.json({ error: 'Too many login attempts. Please try again later.' }, 429);
+    }
+
     const body = await c.req.json<{ email: string; password: string }>();
     if (!body.email || !body.password) {
       return c.json({ error: 'Email and password are required' }, 400);
@@ -95,7 +138,8 @@ export function createAuthRoutes(config: ProxyConfig) {
     });
 
     if (error) {
-      return c.json({ error: error.message }, 401);
+      console.error('[auth] Login error:', error.message);
+      return c.json({ error: 'Invalid email or password.' }, 401);
     }
 
     // Fetch their license key
@@ -119,8 +163,28 @@ export function createAuthRoutes(config: ProxyConfig) {
 
   // ── Google OAuth ────────────────────────────────────────────────
   app.get('/auth/google', async (c) => {
+    // Rate limit: 10 per 15 minutes per IP
+    const ip = getClientIp(c);
+    const rateCheck = checkAuthRateLimit(ip, 'google');
+    if (!rateCheck.allowed) {
+      c.header('Retry-After', String(rateCheck.retryAfterSeconds));
+      return c.json({ error: 'Too many requests. Please try again later.' }, 429);
+    }
+
     const supabase = getSupabaseClient(config);
-    const redirectTo = c.req.query('redirect_to') || `${config.proxyUrl || 'https://proxy.simplestclaw.com'}/auth/callback`;
+    const defaultRedirect = `${config.proxyUrl || 'https://proxy.simplestclaw.com'}/auth/callback`;
+    const requestedRedirect = c.req.query('redirect_to');
+
+    // Validate redirect_to against allowlist to prevent open redirect
+    let redirectTo = defaultRedirect;
+    if (requestedRedirect) {
+      if (isAllowedRedirectUrl(requestedRedirect, config.nodeEnv)) {
+        redirectTo = requestedRedirect;
+      } else {
+        console.warn('[auth] Rejected disallowed redirect_to:', requestedRedirect);
+        // Fall through to default redirect rather than erroring
+      }
+    }
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -130,7 +194,7 @@ export function createAuthRoutes(config: ProxyConfig) {
     });
 
     if (error) {
-      return c.json({ error: error.message }, 400);
+      return c.json({ error: 'OAuth initialization failed' }, 400);
     }
 
     return c.redirect(data.url);
@@ -243,6 +307,14 @@ a{color:rgba(255,255,255,.4);font-size:14px;text-decoration:underline;text-under
 
   // ── Magic link ────────────────────────────────────────────────────
   app.post('/auth/magic-link', async (c) => {
+    // Rate limit: 5 per hour per IP
+    const ip = getClientIp(c);
+    const rateCheck = checkAuthRateLimit(ip, 'magic-link');
+    if (!rateCheck.allowed) {
+      c.header('Retry-After', String(rateCheck.retryAfterSeconds));
+      return c.json({ error: 'Too many requests. Please try again later.' }, 429);
+    }
+
     const body = await c.req.json<{ email: string }>();
     if (!body.email) {
       return c.json({ error: 'Email is required' }, 400);
@@ -257,7 +329,9 @@ a{color:rgba(255,255,255,.4);font-size:14px;text-decoration:underline;text-under
     });
 
     if (error) {
-      return c.json({ error: error.message }, 400);
+      console.error('[auth] Magic link error:', error.message);
+      // Always return success to prevent email enumeration
+      return c.json({ message: 'If that email is valid, a magic link has been sent.' });
     }
 
     return c.json({ message: 'Magic link sent. Check your email.' });

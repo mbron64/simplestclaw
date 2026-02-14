@@ -11,6 +11,7 @@
     "build:sidecar": "node scripts/build-sidecar.js"
   },
   "dependencies": {
+    "@simplestclaw/models": "workspace:*",
     "@simplestclaw/openclaw-client": "workspace:*",
     "@simplestclaw/ui": "workspace:*",
     "@tauri-apps/api": "^2.2.0",

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@simplestclaw/models": "workspace:*",
     "@simplestclaw/openclaw-client": "workspace:*",
     "@simplestclaw/ui": "workspace:*",
     "@supabase/supabase-js": "^2.49.0",

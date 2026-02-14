@@ -12,7 +12,7 @@ const PLANS = [
     description: 'Get started with AI-powered coding assistance.',
     features: [
       '10 messages per day',
-      'Claude Sonnet 4, GPT-4o Mini',
+      'Claude Sonnet 4.5, GPT-5 Mini',
       'Runs locally on your machine',
       'Full privacy — data stays on your device',
     ],
@@ -27,13 +27,13 @@ const PLANS = [
     description: 'For power users who need more capacity and top-tier models.',
     features: [
       '500 messages per day',
-      'All models: Claude Opus 4, Sonnet 4, GPT-4o',
+      'All models: Claude Opus 4.6, Sonnet 4.5, Haiku 4.5, GPT-5.2, GPT-5 Mini, Gemini 3 Pro/Flash',
       'Priority support',
       'Early access to new features',
       'Full privacy — data stays on your device',
     ],
     cta: 'Start free, upgrade anytime',
-    ctaLink: '/',
+    ctaLink: '/settings?tab=billing',
     highlighted: true,
   },
   {
@@ -141,7 +141,7 @@ function FAQ() {
     },
     {
       q: 'What models are available?',
-      a: 'Free users have access to Claude Sonnet 4 and GPT-4o Mini. Pro users get access to all models including Claude Opus 4 and GPT-4o.',
+      a: 'Free users have access to Claude Sonnet 4.5 and GPT-5 Mini. Pro users get access to all 7 models including Claude Opus 4.6, Haiku 4.5, GPT-5.2, and Gemini 3 Pro/Flash.',
     },
     {
       q: 'Can I switch between managed and BYO mode?',
@@ -216,6 +216,12 @@ export default function PricingPage() {
               className="text-[13px] text-white/60 hover:text-white/80 transition-colors"
             >
               Pricing
+            </Link>
+            <Link
+              href="/settings"
+              className="text-[13px] text-white/60 hover:text-white/80 transition-colors"
+            >
+              Settings
             </Link>
             <a
               href="https://github.com/mbron64/simplestclaw"

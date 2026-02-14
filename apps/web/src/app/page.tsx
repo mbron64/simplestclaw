@@ -86,6 +86,12 @@ function Navbar() {
           >
             Pricing
           </Link>
+          <Link
+            href="/settings"
+            className="text-[13px] text-white/50 hover:text-white/80 transition-colors"
+          >
+            Settings
+          </Link>
           <a
             href="https://github.com/mbron64/simplestclaw"
             target="_blank"

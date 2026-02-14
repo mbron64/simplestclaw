@@ -76,7 +76,7 @@ pub struct Config {
     /// User email for managed mode (display in settings)
     #[serde(default)]
     pub user_email: Option<String>,
-    /// Selected model for managed mode (e.g. "claude-sonnet-4-20250514")
+    /// Selected model for managed mode (e.g. "claude-sonnet-4-5-20250929")
     #[serde(default)]
     pub selected_model: Option<String>,
 }
@@ -131,10 +131,44 @@ impl Config {
     }
 }
 
+/// A filtered view of Config that excludes sensitive secrets from the IPC boundary.
+/// The frontend should never receive raw API keys -- use has_api_key() for boolean checks.
+/// License key IS included because the frontend needs it for Bearer auth against the proxy.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SafeConfig {
+    pub provider: Provider,
+    /// true if a BYO API key is configured, but the actual key value is NOT exposed
+    pub has_api_key: bool,
+    pub gateway_port: u16,
+    pub auto_start_gateway: bool,
+    pub api_mode: ApiMode,
+    /// License key is needed by the frontend for Bearer auth against the proxy
+    pub license_key: Option<String>,
+    pub user_email: Option<String>,
+    pub selected_model: Option<String>,
+}
+
+impl SafeConfig {
+    pub fn from_config(config: &Config) -> Self {
+        SafeConfig {
+            provider: config.provider.clone(),
+            has_api_key: config.anthropic_api_key.is_some(),
+            gateway_port: config.gateway_port,
+            auto_start_gateway: config.auto_start_gateway,
+            api_mode: config.api_mode.clone(),
+            license_key: config.license_key.clone(),
+            user_email: config.user_email.clone(),
+            selected_model: config.selected_model.clone(),
+        }
+    }
+}
+
 // Tauri commands
 #[tauri::command]
-pub fn get_config() -> Result<Config, String> {
-    Config::load().map_err(|e| e.to_string())
+pub fn get_config() -> Result<SafeConfig, String> {
+    let config = Config::load().map_err(|e| e.to_string())?;
+    Ok(SafeConfig::from_config(&config))
 }
 
 #[tauri::command]

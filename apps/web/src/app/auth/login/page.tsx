@@ -1,18 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || 'https://proxy.simplestclaw.com';
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qzxmdcyciidawfxcgxjk.supabase.co';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_wFrHWtUk1aqCHm95ELGErQ_ZI1NHnt4';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables');
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 type AuthMode = 'login' | 'signup';
 
-export default function AuthLoginPage() {
+function AuthLoginPageContent() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,6 +28,25 @@ export default function AuthLoginPage() {
   const [success, setSuccess] = useState(false);
   const [successEmail, setSuccessEmail] = useState('');
   const [successKey, setSuccessKey] = useState('');
+
+  // Check if there's a redirect destination (e.g. /settings)
+  const redirectTo = searchParams.get('redirect');
+
+  /** After successful auth, either redirect to a web page or deep-link to desktop */
+  const handleAuthSuccess = (licenseKey: string, userEmail: string) => {
+    setSuccessEmail(userEmail);
+    setSuccessKey(licenseKey);
+    setSuccess(true);
+
+    if (redirectTo) {
+      // Web-based flow: redirect to the requested page (e.g. /settings)
+      // The Supabase session is already stored in the browser, so the target page can use it
+      window.location.href = redirectTo;
+    } else {
+      // Desktop flow: deep-link to the app
+      window.location.href = `simplestclaw://auth/callback?key=${encodeURIComponent(licenseKey)}&email=${encodeURIComponent(userEmail)}`;
+    }
+  };
 
   // Handle OAuth callback -- when Supabase redirects back after Google sign-in
   useEffect(() => {
@@ -91,12 +116,7 @@ export default function AuthLoginPage() {
         // Clean up URL params
         window.history.replaceState({}, '', window.location.pathname);
 
-        setSuccessEmail(userEmail);
-        setSuccessKey(licenseKey);
-        setSuccess(true);
-
-        // Try deep link -- on installed app this opens the desktop app
-        window.location.href = `simplestclaw://auth/callback?key=${encodeURIComponent(licenseKey)}&email=${encodeURIComponent(userEmail)}`;
+        handleAuthSuccess(licenseKey, userEmail);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Something went wrong.');
         setGoogleLoading(false);
@@ -104,16 +124,23 @@ export default function AuthLoginPage() {
     };
 
     handleOAuthCallback();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     setError(null);
 
+    // Preserve the redirect param through the OAuth flow
+    const callbackUrl = new URL(window.location.origin + window.location.pathname);
+    if (redirectTo) {
+      callbackUrl.searchParams.set('redirect', redirectTo);
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + window.location.pathname,
+        redirectTo: callbackUrl.toString(),
       },
     });
 
@@ -154,12 +181,15 @@ export default function AuthLoginPage() {
         return;
       }
 
-      // Redirect to the desktop app via deep link
-      const callbackUrl = `simplestclaw://auth/callback?key=${encodeURIComponent(licenseKey)}&email=${encodeURIComponent(email.trim())}`;
-      setSuccessEmail(email.trim());
-      setSuccessKey(licenseKey);
-      setSuccess(true);
-      window.location.href = callbackUrl;
+      // Sign in via Supabase client so the session is stored in the browser
+      // (needed for web-based flows like /settings)
+      // For signup, the proxy already created the account, so we sign in to establish the session
+      await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      handleAuthSuccess(licenseKey, email.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
@@ -167,8 +197,8 @@ export default function AuthLoginPage() {
     }
   };
 
-  // Success state -- shown after redirect
-  if (success) {
+  // Success state -- shown after redirect (only for desktop flow, web flow redirects immediately)
+  if (success && !redirectTo) {
     return (
       <main className="min-h-screen bg-[#0a0a0a] text-[#fafafa] antialiased flex items-center justify-center p-6">
         <div className="w-full max-w-md text-center">
@@ -368,5 +398,24 @@ export default function AuthLoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function AuthLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0a0a0a] text-[#fafafa] antialiased flex items-center justify-center">
+          <div className="flex items-center gap-3 text-white/40">
+            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M12 2v4m0 12v4m-7.07-3.07l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.07 7.07l-2.83-2.83M7.76 7.76L4.93 4.93" />
+            </svg>
+            <span className="text-[15px]">Loading...</span>
+          </div>
+        </main>
+      }
+    >
+      <AuthLoginPageContent />
+    </Suspense>
   );
 }

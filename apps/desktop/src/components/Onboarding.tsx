@@ -215,7 +215,7 @@ function ManagedSignIn({ onBack }: { onBack: () => void }) {
       await tauri.setApiMode('managed');
       await tauri.setLicenseKey(key);
       await tauri.setUserEmail(email);
-      await tauri.setSelectedModel('claude-sonnet-4-20250514');
+      await tauri.setSelectedModel('claude-sonnet-4-5-20250929');
       setApiKeyConfigured(true);
 
       setGatewayStatus({ type: 'starting' });

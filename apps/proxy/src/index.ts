@@ -13,8 +13,14 @@ const app = new Hono();
 
 // ── Global middleware ─────────────────────────────────────────────────
 app.use('*', logger());
+
+const corsOrigins: string[] = ['https://simplestclaw.com', 'tauri://localhost'];
+if (config.nodeEnv !== 'production') {
+  corsOrigins.push('http://localhost:1420', 'http://localhost:3002');
+}
+
 app.use('*', cors({
-  origin: ['https://simplestclaw.com', 'http://localhost:1420', 'http://localhost:3002', 'tauri://localhost'],
+  origin: corsOrigins,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'anthropic-version'],
   maxAge: 86400,
