@@ -310,11 +310,12 @@ function interceptAndLogUsage(
         const decoder = new TextDecoder();
         const fullBody = chunks.map((c) => decoder.decode(c, { stream: true })).join('') + decoder.decode();
         const usage = extractUsage(fullBody);
-        if (usage) {
-          logUsage(config, userId, provider, model, usage);
-        }
+        // Always log usage -- even if token extraction fails, we record the message
+        logUsage(config, userId, provider, model, usage || { inputTokens: 0, outputTokens: 0 });
       } catch (err) {
         console.error(`[proxy] Error reading stream for usage logging:`, err);
+        // Still log a record so the message is counted on the dashboard
+        logUsage(config, userId, provider, model, { inputTokens: 0, outputTokens: 0 });
       }
     };
     readAll();
@@ -330,11 +331,12 @@ function interceptAndLogUsage(
   const cloned = response.clone();
   cloned.text().then((body) => {
     const usage = extractUsage(body);
-    if (usage) {
-      logUsage(config, userId, provider, model, usage);
-    }
+    // Always log usage -- even if token extraction fails, we record the message
+    logUsage(config, userId, provider, model, usage || { inputTokens: 0, outputTokens: 0 });
   }).catch((err) => {
     console.error(`[proxy] Error reading response for usage logging:`, err);
+    // Still log a record so the message is counted on the dashboard
+    logUsage(config, userId, provider, model, { inputTokens: 0, outputTokens: 0 });
   });
 
   return new Response(response.body, {

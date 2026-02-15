@@ -31,8 +31,8 @@ export async function checkUsageLimit(
   }
 
   const admin = getSupabaseAdmin(config);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
   const { count } = await admin
     .from('usage_logs')

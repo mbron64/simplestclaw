@@ -492,9 +492,9 @@ export function createBillingRoutes(config: ProxyConfig) {
       { inputTokens: 0, outputTokens: 0, costCents: 0, messageCount: 0 },
     );
 
-    // Daily message count (for limit display)
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // Daily message count (for limit display) -- use UTC midnight to match Supabase timestamptz
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const messagesToday = usageLogs.filter(
       (row) => new Date(row.created_at) >= todayStart,
     ).length;
