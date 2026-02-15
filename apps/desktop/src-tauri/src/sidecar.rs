@@ -201,15 +201,16 @@ impl SidecarManager {
                 cmd.env("ANTHROPIC_API_KEY", "managed-via-proxy");
             }
             ApiMode::Byo => {
-                // Write a BYO openclaw.json so the gateway has provider config + tool permissions.
-                // Without this file the gateway starts in a limited / unconfigured mode
-                // which causes "missing scope: operator write" errors and slow startup.
+                // Write ~/.openclaw/openclaw.json with gateway.mode=local, tools.profile=full,
+                // and the default model. This gives the operator full tool access and fixes
+                // "missing scope: operator.write" errors.
                 let api_key = config.anthropic_api_key.as_deref().unwrap_or("");
                 let selected = config.selected_model.as_deref();
-                let openclaw_config = write_byo_openclaw_config(api_key, &config.provider, selected)?;
-                cmd.env("OPENCLAW_CONFIG_PATH", &openclaw_config);
+                write_byo_openclaw_config(api_key, &config.provider, selected)?;
+                // No OPENCLAW_CONFIG_PATH -- we write to the default ~/.openclaw/openclaw.json
+                // so OpenClaw's full runtime (workspace, credentials, scopes) initialises.
 
-                // Also set the env var so OpenClaw can pick it up natively
+                // Set the provider env var so OpenClaw picks up the API key natively
                 match config.provider {
                     Provider::Anthropic => { cmd.env("ANTHROPIC_API_KEY", api_key); }
                     Provider::Openai => { cmd.env("OPENAI_API_KEY", api_key); }
@@ -690,27 +691,33 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
 }
 
 /// Write an openclaw.json config file for BYO (bring-your-own-key) mode.
-/// Points directly at the provider API (not through our proxy) using the user's
-/// own API key.  Also sets gateway.mode and full tool access so the gateway
-/// starts quickly and doesn't reject writes.
-/// Write an openclaw.json config file for BYO (bring-your-own-key) mode.
-/// Instead of defining custom provider configs (which can conflict with
-/// OpenClaw's built-in providers), we just set `gateway.mode: "local"` and
-/// specify the default model. OpenClaw reads the API key from the environment
-/// variable we already set (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.) and uses
-/// its built-in provider handling.
+/// Write an openclaw.json config for BYO (bring-your-own-key) mode.
+///
+/// Writes to `~/.openclaw/openclaw.json` (the default location OpenClaw expects)
+/// instead of a custom path, so that OpenClaw's full runtime initialisation
+/// works correctly (workspace, credentials, scopes).
+///
+/// Also creates `~/.openclaw/workspace` if missing and explicitly sets
+/// `tools.profile: "full"` + `gateway.mode: "local"` to ensure the operator
+/// has full tool access (fixes "missing scope: operator.write").
 fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider, selected_model: Option<&str>) -> Result<String, String> {
     use crate::config::Provider;
-    let config_dir = dirs::config_dir()
-        .ok_or("Failed to get config directory")?
-        .join("simplestclaw");
-    std::fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config dir: {}", e))?;
 
-    let config_path = config_dir.join("openclaw-byo.json");
+    // Write to the default OpenClaw config location so the full runtime
+    // (workspace, credentials, scopes) initialises correctly.
+    let home = dirs::home_dir().ok_or("Failed to get home directory")?;
+    let openclaw_dir = home.join(".openclaw");
+    std::fs::create_dir_all(&openclaw_dir)
+        .map_err(|e| format!("Failed to create .openclaw dir: {}", e))?;
+
+    // Ensure workspace directory exists (OpenClaw needs it for file operations)
+    let workspace_dir = openclaw_dir.join("workspace");
+    std::fs::create_dir_all(&workspace_dir)
+        .map_err(|e| format!("Failed to create workspace dir: {}", e))?;
+
+    let config_path = openclaw_dir.join("openclaw.json");
 
     // Map provider to OpenClaw's built-in provider name and a sensible default model.
-    // These use the `provider/model` format that OpenClaw expects natively.
     let (provider_key, default_model) = match provider {
         Provider::Anthropic => ("anthropic", "claude-sonnet-4-5-20250929"),
         Provider::Openai => ("openai", "gpt-4o"),
@@ -721,7 +728,6 @@ fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider,
     let model = selected_model.unwrap_or(default_model);
 
     // For OpenRouter, the model already includes the sub-provider prefix
-    // (e.g. "anthropic/claude-sonnet-4-5"), so don't double-prefix it.
     let primary_model = if matches!(provider, Provider::Openrouter) && model.contains('/') {
         format!("openrouter/{}", model)
     } else {
@@ -733,8 +739,12 @@ fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider,
   "gateway": {{
     "mode": "local"
   }},
+  "tools": {{
+    "profile": "full"
+  }},
   "agents": {{
     "defaults": {{
+      "workspace": "~/.openclaw/workspace",
       "model": {{ "primary": "{primary_model}" }}
     }}
   }}
