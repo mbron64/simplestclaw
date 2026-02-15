@@ -94,8 +94,9 @@ function Navbar() {
             rel="noopener noreferrer"
             className="group flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-[13px] font-medium rounded-md border border-white/20 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/30 transition-all"
           >
-            <span className="hidden sm:inline text-white/70 group-hover:text-white/90 transition-colors">
-              Star on GitHub
+            <span className="text-white/70 group-hover:text-white/90 transition-colors">
+              <span className="sm:hidden">Star</span>
+              <span className="hidden sm:inline">Star on GitHub</span>
             </span>
             <svg
               className="w-4 h-4 text-white/60 group-hover:text-yellow-400 transition-colors"
