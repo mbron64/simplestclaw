@@ -693,7 +693,13 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
 /// Points directly at the provider API (not through our proxy) using the user's
 /// own API key.  Also sets gateway.mode and full tool access so the gateway
 /// starts quickly and doesn't reject writes.
-fn write_byo_openclaw_config(api_key: &str, provider: &crate::config::Provider, selected_model: Option<&str>) -> Result<String, String> {
+/// Write an openclaw.json config file for BYO (bring-your-own-key) mode.
+/// Instead of defining custom provider configs (which can conflict with
+/// OpenClaw's built-in providers), we just set `gateway.mode: "local"` and
+/// specify the default model. OpenClaw reads the API key from the environment
+/// variable we already set (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.) and uses
+/// its built-in provider handling.
+fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider, selected_model: Option<&str>) -> Result<String, String> {
     use crate::config::Provider;
     let config_dir = dirs::config_dir()
         .ok_or("Failed to get config directory")?
@@ -703,88 +709,43 @@ fn write_byo_openclaw_config(api_key: &str, provider: &crate::config::Provider, 
 
     let config_path = config_dir.join("openclaw-byo.json");
 
-    let (provider_key, base_url, api_type, models_json, default_model) = match provider {
-        Provider::Anthropic => (
-            "anthropic",
-            "https://api.anthropic.com",
-            "anthropic-messages",
-            r#"[
-          { "id": "claude-sonnet-4-5-20250929", "name": "Claude Sonnet 4.5" },
-          { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" },
-          { "id": "claude-opus-4-5-20251124", "name": "Claude Opus 4.5" }
-        ]"#,
-            "claude-sonnet-4-5-20250929",
-        ),
-        Provider::Openai => (
-            "openai",
-            "https://api.openai.com",
-            "openai-completions",
-            r#"[
-          { "id": "gpt-4o", "name": "GPT-4o" },
-          { "id": "gpt-4o-mini", "name": "GPT-4o Mini" },
-          { "id": "o3-mini", "name": "o3 Mini" }
-        ]"#,
-            "gpt-4o",
-        ),
-        Provider::Google => (
-            "google",
-            "https://generativelanguage.googleapis.com",
-            "openai-completions",
-            r#"[
-          { "id": "gemini-2.5-pro-preview", "name": "Gemini 2.5 Pro" },
-          { "id": "gemini-2.5-flash-preview", "name": "Gemini 2.5 Flash" }
-        ]"#,
-            "gemini-2.5-pro-preview",
-        ),
-        Provider::Openrouter => (
-            "openrouter",
-            "https://openrouter.ai/api",
-            "openai-completions",
-            r#"[
-          { "id": "anthropic/claude-sonnet-4-5", "name": "Claude Sonnet 4.5" },
-          { "id": "openai/gpt-4o", "name": "GPT-4o" },
-          { "id": "google/gemini-2.5-pro-preview", "name": "Gemini 2.5 Pro" }
-        ]"#,
-            "anthropic/claude-sonnet-4-5",
-        ),
+    // Map provider to OpenClaw's built-in provider name and a sensible default model.
+    // These use the `provider/model` format that OpenClaw expects natively.
+    let (provider_key, default_model) = match provider {
+        Provider::Anthropic => ("anthropic", "claude-sonnet-4-5-20250929"),
+        Provider::Openai => ("openai", "gpt-4o"),
+        Provider::Google => ("google", "gemini-2.5-pro-preview"),
+        Provider::Openrouter => ("openrouter", "anthropic/claude-sonnet-4-5"),
     };
 
     let model = selected_model.unwrap_or(default_model);
+
+    // For OpenRouter, the model already includes the sub-provider prefix
+    // (e.g. "anthropic/claude-sonnet-4-5"), so don't double-prefix it.
+    let primary_model = if matches!(provider, Provider::Openrouter) && model.contains('/') {
+        format!("openrouter/{}", model)
+    } else {
+        format!("{}/{}", provider_key, model)
+    };
 
     let config_json = format!(
         r#"{{
   "gateway": {{
     "mode": "local"
   }},
-  "models": {{
-    "mode": "merge",
-    "providers": {{
-      "{provider_key}": {{
-        "baseUrl": "{base_url}",
-        "apiKey": "{api_key}",
-        "api": "{api_type}",
-        "models": {models_json}
-      }}
-    }}
-  }},
   "agents": {{
     "defaults": {{
-      "model": {{ "primary": "{provider_key}/{model}" }}
+      "model": {{ "primary": "{primary_model}" }}
     }}
   }}
 }}"#,
-        provider_key = provider_key,
-        base_url = base_url,
-        api_key = api_key,
-        api_type = api_type,
-        models_json = models_json,
-        model = model,
+        primary_model = primary_model,
     );
 
     std::fs::write(&config_path, config_json)
         .map_err(|e| format!("Failed to write BYO openclaw config: {}", e))?;
 
-    println!("[openclaw] Wrote BYO config to {:?} (provider={})", config_path, provider_key);
+    println!("[openclaw] Wrote BYO config to {:?} (provider={}, model={})", config_path, provider_key, primary_model);
 
     Ok(config_path.to_string_lossy().to_string())
 }
