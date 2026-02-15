@@ -188,26 +188,20 @@ export function logUsage(
   // Don't block -- run in the background
   const costCents = estimateCostCents(model, usage.inputTokens, usage.outputTokens);
 
-  console.log(`[usage-debug] logUsage called: userId=${userId} provider=${provider} model=${model} input=${usage.inputTokens} output=${usage.outputTokens} cost=${costCents}`);
-
   const doLog = async () => {
     try {
       const admin = getSupabaseAdmin(config);
-      const insertData = {
+      const { error } = await admin.from('usage_logs').insert({
         user_id: userId,
         provider,
         model,
         input_tokens: usage.inputTokens,
         output_tokens: usage.outputTokens,
         cost_cents: costCents,
-      };
-      console.log(`[usage-debug] Inserting into usage_logs:`, JSON.stringify(insertData));
-      const { error, data } = await admin.from('usage_logs').insert(insertData).select();
+      });
 
       if (error) {
-        console.error('[usage-logger] Failed to insert usage log:', error.message, error.details, error.hint, error.code);
-      } else {
-        console.log(`[usage-debug] Insert SUCCESS:`, JSON.stringify(data));
+        console.error('[usage-logger] Failed to insert usage log:', error.message);
       }
     } catch (err) {
       console.error('[usage-logger] Unexpected error logging usage:', err);
