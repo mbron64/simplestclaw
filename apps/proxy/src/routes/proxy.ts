@@ -279,8 +279,11 @@ function interceptAndLogUsage(
   const headers = filterResponseHeaders(response.headers);
   addRateLimitHeaders(headers, rateLimit);
 
+  console.log(`[usage-debug] interceptAndLogUsage called: provider=${provider} model=${model} userId=${userId} status=${response.status} ok=${response.ok} hasBody=${!!response.body}`);
+
   // If the response has no body or is an error, just pass through
   if (!response.body || !response.ok) {
+    console.log(`[usage-debug] BAIL OUT: no body or not ok (status=${response.status}, body=${!!response.body})`);
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
@@ -290,6 +293,7 @@ function interceptAndLogUsage(
 
   const contentType = response.headers.get('content-type') || '';
   const isStreaming = contentType.includes('text/event-stream');
+  console.log(`[usage-debug] contentType="${contentType}" isStreaming=${isStreaming}`);
 
   if (isStreaming) {
     // For streaming responses, we tee the stream:
