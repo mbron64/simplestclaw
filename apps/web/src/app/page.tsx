@@ -75,12 +75,12 @@ function ArrowLeftIcon({ className }: { className?: string }) {
 function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/5">
-      <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-1">
           <img src="/logo.png" alt="SimplestClaw" className="w-5 h-5 mt-0.5" />
           <span className="text-[15px] font-medium tracking-tight">simplestclaw</span>
         </div>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3 sm:gap-5">
           <Link
             href="/pricing"
             className="text-[13px] text-white/50 hover:text-white/80 transition-colors"
@@ -92,9 +92,9 @@ function Navbar() {
             href="https://github.com/mbron64/simplestclaw"
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-md border border-white/20 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/30 transition-all"
+            className="group flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-[13px] font-medium rounded-md border border-white/20 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/30 transition-all"
           >
-            <span className="text-white/70 group-hover:text-white/90 transition-colors">
+            <span className="hidden sm:inline text-white/70 group-hover:text-white/90 transition-colors">
               Star on GitHub
             </span>
             <svg
