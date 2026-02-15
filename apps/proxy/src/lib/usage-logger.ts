@@ -34,12 +34,12 @@ const COST_PER_MILLION: Record<string, { input: number; output: number }> = {
   default: { input: 300, output: 1500 },
 };
 
-/** Calculate cost in cents from token counts and model */
+/** Calculate cost in cents from token counts and model (returns whole integer cents) */
 function estimateCostCents(model: string, inputTokens: number, outputTokens: number): number {
   const rates = COST_PER_MILLION[model] || COST_PER_MILLION.default;
   const inputCost = (inputTokens / 1_000_000) * rates.input;
   const outputCost = (outputTokens / 1_000_000) * rates.output;
-  return Math.round((inputCost + outputCost) * 100) / 100; // round to 2 decimal places
+  return Math.round(inputCost + outputCost); // round to nearest whole cent (INTEGER column)
 }
 
 export interface UsageData {
