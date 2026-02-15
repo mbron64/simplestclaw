@@ -201,8 +201,15 @@ impl SidecarManager {
                 cmd.env("ANTHROPIC_API_KEY", "managed-via-proxy");
             }
             ApiMode::Byo => {
-                // Existing behavior: direct provider API key
+                // Write a BYO openclaw.json so the gateway has provider config + tool permissions.
+                // Without this file the gateway starts in a limited / unconfigured mode
+                // which causes "missing scope: operator write" errors and slow startup.
                 let api_key = config.anthropic_api_key.as_deref().unwrap_or("");
+                let selected = config.selected_model.as_deref();
+                let openclaw_config = write_byo_openclaw_config(api_key, &config.provider, selected)?;
+                cmd.env("OPENCLAW_CONFIG_PATH", &openclaw_config);
+
+                // Also set the env var so OpenClaw can pick it up natively
                 match config.provider {
                     Provider::Anthropic => { cmd.env("ANTHROPIC_API_KEY", api_key); }
                     Provider::Openai => { cmd.env("OPENAI_API_KEY", api_key); }
@@ -626,6 +633,9 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
     // Model IDs must stay in sync with packages/models/src/index.ts
     let config_json = format!(
         r#"{{
+  "gateway": {{
+    "mode": "local"
+  }},
   "models": {{
     "mode": "merge",
     "providers": {{
@@ -675,6 +685,106 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
         .map_err(|e| format!("Failed to write openclaw config: {}", e))?;
 
     println!("[openclaw] Wrote managed config to {:?}", config_path);
+
+    Ok(config_path.to_string_lossy().to_string())
+}
+
+/// Write an openclaw.json config file for BYO (bring-your-own-key) mode.
+/// Points directly at the provider API (not through our proxy) using the user's
+/// own API key.  Also sets gateway.mode and full tool access so the gateway
+/// starts quickly and doesn't reject writes.
+fn write_byo_openclaw_config(api_key: &str, provider: &crate::config::Provider, selected_model: Option<&str>) -> Result<String, String> {
+    use crate::config::Provider;
+    let config_dir = dirs::config_dir()
+        .ok_or("Failed to get config directory")?
+        .join("simplestclaw");
+    std::fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create config dir: {}", e))?;
+
+    let config_path = config_dir.join("openclaw-byo.json");
+
+    let (provider_key, base_url, api_type, models_json, default_model) = match provider {
+        Provider::Anthropic => (
+            "anthropic",
+            "https://api.anthropic.com",
+            "anthropic-messages",
+            r#"[
+          { "id": "claude-sonnet-4-5-20250929", "name": "Claude Sonnet 4.5" },
+          { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" },
+          { "id": "claude-opus-4-5-20251124", "name": "Claude Opus 4.5" }
+        ]"#,
+            "claude-sonnet-4-5-20250929",
+        ),
+        Provider::Openai => (
+            "openai",
+            "https://api.openai.com",
+            "openai-completions",
+            r#"[
+          { "id": "gpt-4o", "name": "GPT-4o" },
+          { "id": "gpt-4o-mini", "name": "GPT-4o Mini" },
+          { "id": "o3-mini", "name": "o3 Mini" }
+        ]"#,
+            "gpt-4o",
+        ),
+        Provider::Google => (
+            "google",
+            "https://generativelanguage.googleapis.com",
+            "openai-completions",
+            r#"[
+          { "id": "gemini-2.5-pro-preview", "name": "Gemini 2.5 Pro" },
+          { "id": "gemini-2.5-flash-preview", "name": "Gemini 2.5 Flash" }
+        ]"#,
+            "gemini-2.5-pro-preview",
+        ),
+        Provider::Openrouter => (
+            "openrouter",
+            "https://openrouter.ai/api",
+            "openai-completions",
+            r#"[
+          { "id": "anthropic/claude-sonnet-4-5", "name": "Claude Sonnet 4.5" },
+          { "id": "openai/gpt-4o", "name": "GPT-4o" },
+          { "id": "google/gemini-2.5-pro-preview", "name": "Gemini 2.5 Pro" }
+        ]"#,
+            "anthropic/claude-sonnet-4-5",
+        ),
+    };
+
+    let model = selected_model.unwrap_or(default_model);
+
+    let config_json = format!(
+        r#"{{
+  "gateway": {{
+    "mode": "local"
+  }},
+  "models": {{
+    "mode": "merge",
+    "providers": {{
+      "{provider_key}": {{
+        "baseUrl": "{base_url}",
+        "apiKey": "{api_key}",
+        "api": "{api_type}",
+        "models": {models_json}
+      }}
+    }}
+  }},
+  "agents": {{
+    "defaults": {{
+      "model": {{ "primary": "{provider_key}/{model}" }}
+    }}
+  }}
+}}"#,
+        provider_key = provider_key,
+        base_url = base_url,
+        api_key = api_key,
+        api_type = api_type,
+        models_json = models_json,
+        model = model,
+    );
+
+    std::fs::write(&config_path, config_json)
+        .map_err(|e| format!("Failed to write BYO openclaw config: {}", e))?;
+
+    println!("[openclaw] Wrote BYO config to {:?} (provider={})", config_path, provider_key);
 
     Ok(config_path.to_string_lossy().to_string())
 }
