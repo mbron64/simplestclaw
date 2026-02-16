@@ -195,7 +195,7 @@ impl SidecarManager {
                 // OpenClaw's full runtime (workspace, tools, scopes) initialises correctly.
                 let license_key = config.license_key.as_deref().unwrap_or("");
                 let model = config.selected_model.as_deref().unwrap_or("claude-sonnet-4-5-20250929");
-                let _ = write_managed_openclaw_config(license_key, model)?;
+                let _ = write_managed_openclaw_config(license_key, model, &config.tool_profile, config.allow_exec)?;
                 // In managed mode, requests route through the SimplestClaw proxy which
                 // swaps in the real provider API key. We set a placeholder here because
                 // OpenClaw requires the env var to be present at startup.
@@ -207,7 +207,7 @@ impl SidecarManager {
                 // "missing scope: operator.write" errors.
                 let api_key = config.anthropic_api_key.as_deref().unwrap_or("");
                 let selected = config.selected_model.as_deref();
-                write_byo_openclaw_config(api_key, &config.provider, selected)?;
+                write_byo_openclaw_config(api_key, &config.provider, selected, &config.tool_profile, config.allow_exec)?;
                 // No OPENCLAW_CONFIG_PATH -- we write to the default ~/.openclaw/openclaw.json
                 // so OpenClaw's full runtime (workspace, credentials, scopes) initialises.
 
@@ -607,21 +607,64 @@ fn generate_token() -> String {
     format!("sclw-{:x}{:x}", duration.as_secs(), duration.subsec_nanos())
 }
 
-/// Seed the workspace with essential bootstrap files if they don't already exist.
+/// Build the "tools" JSON block for openclaw.json based on user settings.
+fn build_tools_json(tool_profile: &crate::config::ToolProfile, allow_exec: bool) -> String {
+    use crate::config::ToolProfile;
+
+    let profile_str = match tool_profile {
+        ToolProfile::Full => "full",
+        ToolProfile::Coding => "coding",
+        ToolProfile::Minimal => "minimal",
+    };
+
+    if allow_exec || matches!(tool_profile, ToolProfile::Minimal) {
+        // Minimal already excludes exec, so no deny needed
+        format!(r#""tools": {{
+    "profile": "{}"
+  }}"#, profile_str)
+    } else {
+        format!(r#""tools": {{
+    "profile": "{}",
+    "deny": ["group:runtime"]
+  }}"#, profile_str)
+    }
+}
+
+/// Seed the workspace with bootstrap files appropriate for the current tool profile.
 /// OpenClaw loads these on every session start to guide the agent's behaviour.
-/// Without them the model falls back to training defaults and refuses file access.
-fn seed_workspace_bootstrap(workspace_dir: &std::path::Path) -> Result<(), String> {
-    let agents_md = workspace_dir.join("AGENTS.md");
-    if !agents_md.exists() {
-        std::fs::write(&agents_md, r#"# SimplestClaw Agent
+///
+/// Files managed by SimplestClaw (AGENTS.md, TOOLS.md, SOUL.md) are always overwritten
+/// when a `.simplestclaw-managed` marker exists (or on first run). If the user deletes
+/// the marker, their custom files are preserved.
+fn seed_workspace_bootstrap(
+    workspace_dir: &std::path::Path,
+    tool_profile: &crate::config::ToolProfile,
+) -> Result<(), String> {
+    use crate::config::ToolProfile;
+
+    let marker = workspace_dir.join(".simplestclaw-managed");
+    let is_managed = marker.exists();
+    let is_first_run = !workspace_dir.join("AGENTS.md").exists();
+
+    // On first run, create the marker so we know we can overwrite on future starts
+    if is_first_run {
+        let _ = std::fs::write(&marker, "This file indicates SimplestClaw manages these bootstrap files.\nDelete it to keep your custom edits.\n");
+    }
+
+    let should_write = is_first_run || is_managed;
+
+    if should_write {
+        // AGENTS.md — varies by profile
+        let agents_content = match tool_profile {
+            ToolProfile::Full => r#"# SimplestClaw Agent
 
 You are SimplestClaw, an AI coding assistant running on the user's computer.
 
 ## Capabilities
 
-You have **full filesystem access** via the `read`, `write`, and `edit` tools.
+You have **full access** to the filesystem and shell via the `read`, `write`, `edit`, and `exec` tools.
 You can read any file on this computer using absolute paths (e.g. ~/Downloads, ~/Documents, ~/Desktop).
-You can also run shell commands via the `exec` tool.
+You can run shell commands via the `exec` tool.
 
 ## Guidelines
 
@@ -630,15 +673,49 @@ You can also run shell commands via the `exec` tool.
 - When the user asks you to edit or create files, use `write` or `edit`.
 - Always confirm before deleting or overwriting important files.
 - Respect the user's privacy — only access files they explicitly ask about.
-"#).map_err(|e| format!("Failed to write AGENTS.md: {}", e))?;
-    }
+"#,
+            ToolProfile::Coding => r#"# SimplestClaw Agent
 
-    let tools_md = workspace_dir.join("TOOLS.md");
-    if !tools_md.exists() {
-        std::fs::write(&tools_md, r#"# Available Tools
+You are SimplestClaw, a coding assistant running on the user's computer.
+
+## Capabilities
+
+You have **coding-level access**: filesystem tools (`read`, `write`, `edit`) and shell commands (`exec`).
+You can read and write files using absolute paths and run shell commands.
+Web browsing and messaging tools are not available.
+
+## Guidelines
+
+- Use `read` to view files the user asks about.
+- Use `write` or `edit` to create or modify code files.
+- Use `exec` for development commands (e.g. `npm install`, `git status`, `cargo build`).
+- Always confirm before deleting or overwriting important files.
+- Respect the user's privacy — only access files they explicitly ask about.
+"#,
+            ToolProfile::Minimal => r#"# SimplestClaw Agent
+
+You are SimplestClaw, a conversational AI assistant.
+
+## Capabilities
+
+You are in **chat-only mode**. You can have conversations but you do NOT have access to:
+- The filesystem (no reading or writing files)
+- Shell commands (no running terminal commands)
+- Web browsing
+
+If the user asks you to read a file, run a command, or access their computer, let them know
+that these capabilities are currently disabled and can be enabled in Settings > Security & Activity.
+"#,
+        };
+        std::fs::write(workspace_dir.join("AGENTS.md"), agents_content)
+            .map_err(|e| format!("Failed to write AGENTS.md: {}", e))?;
+
+        // TOOLS.md — varies by profile
+        let tools_content = match tool_profile {
+            ToolProfile::Full => r#"# Available Tools
 
 ## Filesystem
-- `read` — Read file contents. Accepts absolute paths (e.g. `/Users/name/Downloads/file.txt`) or paths relative to the workspace.
+- `read` — Read file contents. Accepts absolute paths or paths relative to the workspace.
 - `write` — Write/create files.
 - `edit` — Edit existing files with search-and-replace.
 - `apply_patch` — Apply structured multi-hunk patches.
@@ -651,18 +728,52 @@ You can also run shell commands via the `exec` tool.
 - The user's home directory is accessible via `~` or the absolute path.
 - Protected macOS folders (Downloads, Documents, Desktop) may trigger a system permission prompt on first access.
 - Use `exec` with `ls` to explore directories before reading specific files.
-"#).map_err(|e| format!("Failed to write TOOLS.md: {}", e))?;
-    }
+"#,
+            ToolProfile::Coding => r#"# Available Tools
 
-    let soul_md = workspace_dir.join("SOUL.md");
-    if !soul_md.exists() {
-        std::fs::write(&soul_md, r#"# Soul
+## Filesystem
+- `read` — Read file contents. Accepts absolute paths or paths relative to the workspace.
+- `write` — Write/create files.
+- `edit` — Edit existing files with search-and-replace.
+- `apply_patch` — Apply structured multi-hunk patches.
+
+## Runtime
+- `exec` — Run shell commands for development tasks.
+- `process` — Manage background processes.
+
+## Notes
+- Web search, web fetch, and browser tools are not available in Coding mode.
+- Use `exec` with `ls` to explore directories before reading specific files.
+"#,
+            ToolProfile::Minimal => r#"# Available Tools
+
+No filesystem or runtime tools are available in Chat Only mode.
+You can have conversations but cannot access files or run commands.
+
+To enable file and command access, change the access level in Settings > Security & Activity.
+"#,
+        };
+        std::fs::write(workspace_dir.join("TOOLS.md"), tools_content)
+            .map_err(|e| format!("Failed to write TOOLS.md: {}", e))?;
+
+        // SOUL.md — varies by profile
+        let soul_content = match tool_profile {
+            ToolProfile::Minimal => r#"# Soul
+
+You are a helpful conversational assistant. You do NOT have access to the user's filesystem or commands.
+If asked to read files or run commands, explain that these features are disabled and can be enabled in Settings.
+"#,
+            _ => r#"# Soul
 
 You are a helpful, capable coding assistant. You have access to the user's filesystem and can run commands.
 Be direct and practical. When the user asks you to do something with files, just do it — don't say you can't.
-"#).map_err(|e| format!("Failed to write SOUL.md: {}", e))?;
+"#,
+        };
+        std::fs::write(workspace_dir.join("SOUL.md"), soul_content)
+            .map_err(|e| format!("Failed to write SOUL.md: {}", e))?;
     }
 
+    // USER.md — only on first run (user-customizable)
     let user_md = workspace_dir.join("USER.md");
     if !user_md.exists() {
         std::fs::write(&user_md, r#"# User
@@ -677,7 +788,7 @@ They expect you to interact with their files and computer when asked.
     std::fs::create_dir_all(&memory_dir)
         .map_err(|e| format!("Failed to create memory dir: {}", e))?;
 
-    println!("[openclaw] Workspace bootstrap files seeded at {:?}", workspace_dir);
+    println!("[openclaw] Workspace bootstrap files seeded at {:?} (profile: {:?})", workspace_dir, tool_profile);
     Ok(())
 }
 
@@ -685,7 +796,12 @@ They expect you to interact with their files and computer when asked.
 /// This configures the gateway to route all LLM requests through our proxy,
 /// using the user's license key as the API key for the custom provider.
 /// Returns the path to the written config file.
-fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<String, String> {
+fn write_managed_openclaw_config(
+    license_key: &str,
+    model: &str,
+    tool_profile: &crate::config::ToolProfile,
+    allow_exec: bool,
+) -> Result<String, String> {
     // Write to the default OpenClaw location so the full runtime
     // (workspace, credentials, scopes, tool injection) initialises correctly.
     let home = dirs::home_dir().ok_or("Failed to get home directory")?;
@@ -697,7 +813,7 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
     let workspace_dir = openclaw_dir.join("workspace");
     std::fs::create_dir_all(&workspace_dir)
         .map_err(|e| format!("Failed to create workspace dir: {}", e))?;
-    seed_workspace_bootstrap(&workspace_dir)?;
+    seed_workspace_bootstrap(&workspace_dir, tool_profile)?;
 
     let config_path = openclaw_dir.join("openclaw.json");
 
@@ -712,6 +828,7 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
     };
 
     let proxy_base = "https://proxy.simplestclaw.com";
+    let tools_block = build_tools_json(tool_profile, allow_exec);
 
     // Model IDs must stay in sync with packages/models/src/index.ts
     let config_json = format!(
@@ -719,9 +836,7 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
   "gateway": {{
     "mode": "local"
   }},
-  "tools": {{
-    "profile": "full"
-  }},
+  {tools_block},
   "models": {{
     "mode": "merge",
     "providers": {{
@@ -762,6 +877,7 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
     }}
   }}
 }}"#,
+        tools_block = tools_block,
         proxy_base = proxy_base,
         license_key = license_key,
         provider_name = provider_name,
@@ -776,17 +892,17 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
     Ok(config_path.to_string_lossy().to_string())
 }
 
-/// Write an openclaw.json config file for BYO (bring-your-own-key) mode.
 /// Write an openclaw.json config for BYO (bring-your-own-key) mode.
 ///
 /// Writes to `~/.openclaw/openclaw.json` (the default location OpenClaw expects)
-/// instead of a custom path, so that OpenClaw's full runtime initialisation
-/// works correctly (workspace, credentials, scopes).
-///
-/// Also creates `~/.openclaw/workspace` if missing and explicitly sets
-/// `tools.profile: "full"` + `gateway.mode: "local"` to ensure the operator
-/// has full tool access (fixes "missing scope: operator.write").
-fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider, selected_model: Option<&str>) -> Result<String, String> {
+/// so that OpenClaw's full runtime initialisation works correctly.
+fn write_byo_openclaw_config(
+    _api_key: &str,
+    provider: &crate::config::Provider,
+    selected_model: Option<&str>,
+    tool_profile: &crate::config::ToolProfile,
+    allow_exec: bool,
+) -> Result<String, String> {
     use crate::config::Provider;
 
     // Write to the default OpenClaw config location so the full runtime
@@ -800,7 +916,7 @@ fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider,
     let workspace_dir = openclaw_dir.join("workspace");
     std::fs::create_dir_all(&workspace_dir)
         .map_err(|e| format!("Failed to create workspace dir: {}", e))?;
-    seed_workspace_bootstrap(&workspace_dir)?;
+    seed_workspace_bootstrap(&workspace_dir, tool_profile)?;
 
     let config_path = openclaw_dir.join("openclaw.json");
 
@@ -821,14 +937,14 @@ fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider,
         format!("{}/{}", provider_key, model)
     };
 
+    let tools_block = build_tools_json(tool_profile, allow_exec);
+
     let config_json = format!(
         r#"{{
   "gateway": {{
     "mode": "local"
   }},
-  "tools": {{
-    "profile": "full"
-  }},
+  {tools_block},
   "agents": {{
     "defaults": {{
       "workspace": "~/.openclaw/workspace",
@@ -836,6 +952,7 @@ fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider,
     }}
   }}
 }}"#,
+        tools_block = tools_block,
         primary_model = primary_model,
     );
 

@@ -74,6 +74,8 @@ pub fn run() {
             config::set_license_key,
             config::set_user_email,
             config::set_selected_model,
+            config::set_tool_profile,
+            config::set_allow_exec,
             config::get_app_data_info,
             config::delete_all_app_data,
             // Gateway

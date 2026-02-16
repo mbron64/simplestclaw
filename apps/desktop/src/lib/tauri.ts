@@ -3,6 +3,7 @@ import type { ActivityLogEntry, GatewayInfo } from './store';
 
 export type Provider = 'anthropic' | 'openai' | 'google' | 'openrouter';
 export type ApiMode = 'byo' | 'managed';
+export type ToolProfile = 'full' | 'coding' | 'minimal';
 
 export interface Config {
   provider: Provider;
@@ -14,6 +15,8 @@ export interface Config {
   licenseKey: string | null;
   userEmail: string | null;
   selectedModel: string | null;
+  toolProfile: ToolProfile;
+  allowExec: boolean;
 }
 
 export interface RuntimeStatus {
@@ -70,6 +73,15 @@ export const tauri = {
 
   async setSelectedModel(model: string): Promise<void> {
     return invoke('set_selected_model', { model });
+  },
+
+  // Agent permissions
+  async setToolProfile(profile: ToolProfile): Promise<void> {
+    return invoke('set_tool_profile', { profile });
+  },
+
+  async setAllowExec(allow: boolean): Promise<void> {
+    return invoke('set_allow_exec', { allow });
   },
 
   // Gateway

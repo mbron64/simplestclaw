@@ -55,6 +55,33 @@ impl Default for ApiMode {
     }
 }
 
+/// Tool access profile — maps directly to OpenClaw's tools.profile config.
+/// Controls which tool groups the agent can use.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolProfile {
+    /// No restrictions: read, write, edit, exec, web, browser, etc.
+    Full,
+    /// Filesystem + runtime + sessions + memory. No web, browser, or messaging.
+    Coding,
+    /// Conversation only. No file access, no commands.
+    Minimal,
+}
+
+impl Default for ToolProfile {
+    fn default() -> Self {
+        ToolProfile::Full
+    }
+}
+
+fn default_tool_profile() -> ToolProfile {
+    ToolProfile::Full
+}
+
+fn default_allow_exec() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
@@ -79,6 +106,12 @@ pub struct Config {
     /// Selected model for managed mode (e.g. "claude-sonnet-4-5-20250929")
     #[serde(default)]
     pub selected_model: Option<String>,
+    /// Tool access profile: full, coding, or minimal
+    #[serde(default = "default_tool_profile")]
+    pub tool_profile: ToolProfile,
+    /// Whether shell commands (exec, bash, process) are allowed
+    #[serde(default = "default_allow_exec")]
+    pub allow_exec: bool,
 }
 
 fn default_port() -> u16 {
@@ -100,6 +133,8 @@ impl Default for Config {
             license_key: None,
             user_email: None,
             selected_model: None,
+            tool_profile: ToolProfile::default(),
+            allow_exec: true,
         }
     }
 }
@@ -147,6 +182,8 @@ pub struct SafeConfig {
     pub license_key: Option<String>,
     pub user_email: Option<String>,
     pub selected_model: Option<String>,
+    pub tool_profile: ToolProfile,
+    pub allow_exec: bool,
 }
 
 impl SafeConfig {
@@ -160,6 +197,8 @@ impl SafeConfig {
             license_key: config.license_key.clone(),
             user_email: config.user_email.clone(),
             selected_model: config.selected_model.clone(),
+            tool_profile: config.tool_profile.clone(),
+            allow_exec: config.allow_exec,
         }
     }
 }
@@ -239,6 +278,25 @@ pub fn set_user_email(email: String) -> Result<(), String> {
 pub fn set_selected_model(model: String) -> Result<(), String> {
     let mut config = Config::load().map_err(|e| e.to_string())?;
     config.selected_model = if model.is_empty() { None } else { Some(model) };
+    config.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_tool_profile(profile: String) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.tool_profile = match profile.to_lowercase().as_str() {
+        "full" => ToolProfile::Full,
+        "coding" => ToolProfile::Coding,
+        "minimal" => ToolProfile::Minimal,
+        _ => return Err(format!("Unknown tool profile: {}. Use 'full', 'coding', or 'minimal'.", profile)),
+    };
+    config.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_allow_exec(allow: bool) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.allow_exec = allow;
     config.save().map_err(|e| e.to_string())
 }
 
