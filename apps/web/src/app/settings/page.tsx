@@ -267,11 +267,13 @@ function BillingSection({
   accessToken: string;
 }) {
   const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   const currentPlan = account.subscription.plan;
 
   const handleUpgrade = async (targetPlan: 'pro' | 'ultra') => {
     setUpgradeLoading(targetPlan);
+    setUpgradeError(null);
     try {
       const res = await fetch(`${PROXY_URL}/billing/upgrade`, {
         method: 'POST',
@@ -284,9 +286,12 @@ function BillingSection({
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        setUpgradeError(data.error || 'Failed to start checkout. Please try again.');
       }
     } catch (err) {
       console.error('Failed to start checkout:', err);
+      setUpgradeError('Unable to connect to billing service. Please try again later.');
     } finally {
       setUpgradeLoading(null);
     }
@@ -327,7 +332,7 @@ function BillingSection({
       id: 'ultra',
       name: 'Ultra',
       price: '$150 / month',
-      features: ['2,000 messages per day', '7 models incl. Opus 4.5, GPT-5.2'],
+      features: ['2,500 messages per day', '7 models incl. Opus 4.5, GPT-5.2'],
       checkColor: 'text-violet-500/60',
     },
   ];
@@ -377,6 +382,13 @@ function BillingSection({
               </div>
             ))}
           </div>
+
+          {/* Error */}
+          {upgradeError && (
+            <div className="px-5 py-3 bg-red-500/5 border-t border-red-500/10">
+              <p className="text-[13px] text-red-400">{upgradeError}</p>
+            </div>
+          )}
 
           {/* Action */}
           <div className="p-5 bg-white/[0.01] border-t border-white/10">
