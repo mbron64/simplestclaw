@@ -189,12 +189,13 @@ impl SidecarManager {
         // Configure provider credentials based on API mode
         match config.api_mode {
             ApiMode::Managed => {
-                // Write openclaw.json with models.providers pointing at our proxy.
+                // Write ~/.openclaw/openclaw.json with models.providers pointing at our proxy.
                 // The license key is used as the "apiKey" for the custom provider.
+                // We write to the default location (not via OPENCLAW_CONFIG_PATH) so
+                // OpenClaw's full runtime (workspace, tools, scopes) initialises correctly.
                 let license_key = config.license_key.as_deref().unwrap_or("");
                 let model = config.selected_model.as_deref().unwrap_or("claude-sonnet-4-5-20250929");
-                let openclaw_config = write_managed_openclaw_config(license_key, model)?;
-                cmd.env("OPENCLAW_CONFIG_PATH", &openclaw_config);
+                let _ = write_managed_openclaw_config(license_key, model)?;
                 // In managed mode, requests route through the SimplestClaw proxy which
                 // swaps in the real provider API key. We set a placeholder here because
                 // OpenClaw requires the env var to be present at startup.
@@ -606,18 +607,99 @@ fn generate_token() -> String {
     format!("sclw-{:x}{:x}", duration.as_secs(), duration.subsec_nanos())
 }
 
+/// Seed the workspace with essential bootstrap files if they don't already exist.
+/// OpenClaw loads these on every session start to guide the agent's behaviour.
+/// Without them the model falls back to training defaults and refuses file access.
+fn seed_workspace_bootstrap(workspace_dir: &std::path::Path) -> Result<(), String> {
+    let agents_md = workspace_dir.join("AGENTS.md");
+    if !agents_md.exists() {
+        std::fs::write(&agents_md, r#"# SimplestClaw Agent
+
+You are SimplestClaw, an AI coding assistant running on the user's computer.
+
+## Capabilities
+
+You have **full filesystem access** via the `read`, `write`, and `edit` tools.
+You can read any file on this computer using absolute paths (e.g. ~/Downloads, ~/Documents, ~/Desktop).
+You can also run shell commands via the `exec` tool.
+
+## Guidelines
+
+- When the user asks you to look at a file, **use the `read` tool** with the absolute path.
+- When the user asks about recent downloads, list `~/Downloads` using `exec` (e.g. `ls -lt ~/Downloads | head -20`).
+- When the user asks you to edit or create files, use `write` or `edit`.
+- Always confirm before deleting or overwriting important files.
+- Respect the user's privacy — only access files they explicitly ask about.
+"#).map_err(|e| format!("Failed to write AGENTS.md: {}", e))?;
+    }
+
+    let tools_md = workspace_dir.join("TOOLS.md");
+    if !tools_md.exists() {
+        std::fs::write(&tools_md, r#"# Available Tools
+
+## Filesystem
+- `read` — Read file contents. Accepts absolute paths (e.g. `/Users/name/Downloads/file.txt`) or paths relative to the workspace.
+- `write` — Write/create files.
+- `edit` — Edit existing files with search-and-replace.
+- `apply_patch` — Apply structured multi-hunk patches.
+
+## Runtime
+- `exec` — Run shell commands. Use for listing directories, installing packages, running scripts, etc.
+- `process` — Manage background processes.
+
+## Tips
+- The user's home directory is accessible via `~` or the absolute path.
+- Protected macOS folders (Downloads, Documents, Desktop) may trigger a system permission prompt on first access.
+- Use `exec` with `ls` to explore directories before reading specific files.
+"#).map_err(|e| format!("Failed to write TOOLS.md: {}", e))?;
+    }
+
+    let soul_md = workspace_dir.join("SOUL.md");
+    if !soul_md.exists() {
+        std::fs::write(&soul_md, r#"# Soul
+
+You are a helpful, capable coding assistant. You have access to the user's filesystem and can run commands.
+Be direct and practical. When the user asks you to do something with files, just do it — don't say you can't.
+"#).map_err(|e| format!("Failed to write SOUL.md: {}", e))?;
+    }
+
+    let user_md = workspace_dir.join("USER.md");
+    if !user_md.exists() {
+        std::fs::write(&user_md, r#"# User
+
+The user is a developer using SimplestClaw as their AI coding assistant.
+They expect you to interact with their files and computer when asked.
+"#).map_err(|e| format!("Failed to write USER.md: {}", e))?;
+    }
+
+    // Create memory directory for daily logs
+    let memory_dir = workspace_dir.join("memory");
+    std::fs::create_dir_all(&memory_dir)
+        .map_err(|e| format!("Failed to create memory dir: {}", e))?;
+
+    println!("[openclaw] Workspace bootstrap files seeded at {:?}", workspace_dir);
+    Ok(())
+}
+
 /// Write an openclaw.json config file for managed mode.
 /// This configures the gateway to route all LLM requests through our proxy,
 /// using the user's license key as the API key for the custom provider.
 /// Returns the path to the written config file.
 fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<String, String> {
-    let config_dir = dirs::config_dir()
-        .ok_or("Failed to get config directory")?
-        .join("simplestclaw");
-    std::fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config dir: {}", e))?;
+    // Write to the default OpenClaw location so the full runtime
+    // (workspace, credentials, scopes, tool injection) initialises correctly.
+    let home = dirs::home_dir().ok_or("Failed to get home directory")?;
+    let openclaw_dir = home.join(".openclaw");
+    std::fs::create_dir_all(&openclaw_dir)
+        .map_err(|e| format!("Failed to create .openclaw dir: {}", e))?;
 
-    let config_path = config_dir.join("openclaw-managed.json");
+    // Ensure workspace directory exists and seed bootstrap files
+    let workspace_dir = openclaw_dir.join("workspace");
+    std::fs::create_dir_all(&workspace_dir)
+        .map_err(|e| format!("Failed to create workspace dir: {}", e))?;
+    seed_workspace_bootstrap(&workspace_dir)?;
+
+    let config_path = openclaw_dir.join("openclaw.json");
 
     // Determine the provider prefix and API type from the model name
     let (provider_name, _api_type) = if model.contains("gpt") || model.contains("o1") || model.contains("o3") {
@@ -636,6 +718,9 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
         r#"{{
   "gateway": {{
     "mode": "local"
+  }},
+  "tools": {{
+    "profile": "full"
   }},
   "models": {{
     "mode": "merge",
@@ -672,6 +757,7 @@ fn write_managed_openclaw_config(license_key: &str, model: &str) -> Result<Strin
   }},
   "agents": {{
     "defaults": {{
+      "workspace": "~/.openclaw/workspace",
       "model": {{ "primary": "{provider_name}/{model}" }}
     }}
   }}
@@ -710,10 +796,11 @@ fn write_byo_openclaw_config(_api_key: &str, provider: &crate::config::Provider,
     std::fs::create_dir_all(&openclaw_dir)
         .map_err(|e| format!("Failed to create .openclaw dir: {}", e))?;
 
-    // Ensure workspace directory exists (OpenClaw needs it for file operations)
+    // Ensure workspace directory exists and seed bootstrap files
     let workspace_dir = openclaw_dir.join("workspace");
     std::fs::create_dir_all(&workspace_dir)
         .map_err(|e| format!("Failed to create workspace dir: {}", e))?;
+    seed_workspace_bootstrap(&workspace_dir)?;
 
     let config_path = openclaw_dir.join("openclaw.json");
 
