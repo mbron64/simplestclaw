@@ -18,7 +18,7 @@ const PROVIDER_TEMPLATES: Record<Exclude<Provider, null>, string> = {
 
 // GitHub release download URLs
 const GITHUB_REPO = 'mbron64/simplestclaw';
-const APP_VERSION = '0.4.4';
+const APP_VERSION = '0.4.5';
 
 const getDownloadUrl = (platform: 'macos' | 'windows' | 'linux') => {
   const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/desktop-v${APP_VERSION}`;

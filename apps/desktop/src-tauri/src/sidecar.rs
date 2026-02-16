@@ -673,6 +673,16 @@ You can run shell commands via the `exec` tool.
 - When the user asks you to edit or create files, use `write` or `edit`.
 - Always confirm before deleting or overwriting important files.
 - Respect the user's privacy — only access files they explicitly ask about.
+
+## IMPORTANT: macOS Permission Retry
+
+On macOS, the first time you access a protected folder (~/Downloads, ~/Documents, ~/Desktop),
+the system shows a permission popup to the user. During this popup, your access attempt will
+return an EMPTY result even though the folder has files. This is expected macOS behavior.
+
+**You MUST always retry once** if a protected folder appears empty on your first access.
+The user will have clicked "Allow" by then and the retry will succeed. Never tell the user
+a folder is empty without retrying at least once.
 "#,
             ToolProfile::Coding => r#"# SimplestClaw Agent
 
@@ -691,6 +701,16 @@ Web browsing and messaging tools are not available.
 - Use `exec` for development commands (e.g. `npm install`, `git status`, `cargo build`).
 - Always confirm before deleting or overwriting important files.
 - Respect the user's privacy — only access files they explicitly ask about.
+
+## IMPORTANT: macOS Permission Retry
+
+On macOS, the first time you access a protected folder (~/Downloads, ~/Documents, ~/Desktop),
+the system shows a permission popup to the user. During this popup, your access attempt will
+return an EMPTY result even though the folder has files. This is expected macOS behavior.
+
+**You MUST always retry once** if a protected folder appears empty on your first access.
+The user will have clicked "Allow" by then and the retry will succeed. Never tell the user
+a folder is empty without retrying at least once.
 "#,
             ToolProfile::Minimal => r#"# SimplestClaw Agent
 
@@ -728,6 +748,7 @@ that these capabilities are currently disabled and can be enabled in Settings > 
 - The user's home directory is accessible via `~` or the absolute path.
 - Protected macOS folders (Downloads, Documents, Desktop) may trigger a system permission prompt on first access.
 - Use `exec` with `ls` to explore directories before reading specific files.
+- **macOS TCC retry**: If a protected folder (Downloads, Documents, Desktop) returns empty results, ALWAYS retry once — the system permission dialog was likely shown and the user has now granted access.
 "#,
             ToolProfile::Coding => r#"# Available Tools
 
@@ -744,6 +765,7 @@ that these capabilities are currently disabled and can be enabled in Settings > 
 ## Notes
 - Web search, web fetch, and browser tools are not available in Coding mode.
 - Use `exec` with `ls` to explore directories before reading specific files.
+- **macOS TCC retry**: If a protected folder (Downloads, Documents, Desktop) returns empty results, ALWAYS retry once — the system permission dialog was likely shown and the user has now granted access.
 "#,
             ToolProfile::Minimal => r#"# Available Tools
 
