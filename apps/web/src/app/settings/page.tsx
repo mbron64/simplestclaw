@@ -332,7 +332,7 @@ function BillingSection({
       id: 'ultra',
       name: 'Ultra',
       price: '$150 / month',
-      features: ['2,500 messages per day', '7 models incl. Opus 4.5, GPT-5.2'],
+      features: ['2,000 messages per day', '7 models incl. Opus 4.5, GPT-5.2'],
       checkColor: 'text-violet-500/60',
     },
   ];

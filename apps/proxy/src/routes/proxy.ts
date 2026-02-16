@@ -215,7 +215,7 @@ async function validateAndCheckLimits(
     if (license.plan === 'free') {
       upgradeMsg = ' Upgrade to Pro for 200 messages/day at simplestclaw.com/settings.';
     } else if (license.plan === 'pro') {
-      upgradeMsg = ' Upgrade to Ultra for 2500 messages/day at simplestclaw.com/settings.';
+      upgradeMsg = ' Upgrade to Ultra for 2000 messages/day at simplestclaw.com/settings.';
     }
     const errorResponse = Response.json(
       {

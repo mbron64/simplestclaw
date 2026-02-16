@@ -11,7 +11,7 @@ import { getSupabaseAdmin } from '../lib/supabase.js';
 const PLAN_LIMITS: Record<string, number> = {
   free: 10,
   pro: 200,
-  ultra: 2500,
+  ultra: 2000,
 };
 
 /**

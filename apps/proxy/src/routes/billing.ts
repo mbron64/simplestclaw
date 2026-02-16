@@ -499,7 +499,7 @@ export function createBillingRoutes(config: ProxyConfig) {
       (row) => new Date(row.created_at) >= todayStart,
     ).length;
 
-    const dailyLimits: Record<string, number> = { free: 10, pro: 200, ultra: 2500 };
+    const dailyLimits: Record<string, number> = { free: 10, pro: 200, ultra: 2000 };
     const dailyLimit = dailyLimits[subscription.plan] ?? 10;
 
     return c.json({
