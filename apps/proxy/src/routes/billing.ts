@@ -167,56 +167,62 @@ export function createBillingRoutes(config: ProxyConfig) {
       return c.json({ error: 'Invalid session' }, 401);
     }
 
-    const admin = getSupabaseAdmin(config);
+    try {
+      const admin = getSupabaseAdmin(config);
 
-    // Get or create Stripe customer
-    const { data: sub } = await admin
-      .from('subscriptions')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
-      .single();
-
-    const stripe = getStripeClient(config);
-    let customerId = sub?.stripe_customer_id;
-
-    if (!customerId) {
-      // Create a Stripe customer
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { userId: user.id },
-      });
-      customerId = customer.id;
-
-      // Store in DB
-      await admin
+      // Get or create Stripe customer
+      const { data: sub } = await admin
         .from('subscriptions')
-        .upsert({
-          user_id: user.id,
-          stripe_customer_id: customerId,
-        }, { onConflict: 'user_id' });
+        .select('stripe_customer_id')
+        .eq('user_id', user.id)
+        .single();
+
+      const stripe = getStripeClient(config);
+      let customerId = sub?.stripe_customer_id;
+
+      if (!customerId) {
+        // Create a Stripe customer
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: { userId: user.id },
+        });
+        customerId = customer.id;
+
+        // Store in DB
+        await admin
+          .from('subscriptions')
+          .upsert({
+            user_id: user.id,
+            stripe_customer_id: customerId,
+          }, { onConflict: 'user_id' });
+      }
+
+      // Determine target plan from request body (default: pro)
+      const body = await c.req.json<{ plan?: string }>().catch(() => ({} as { plan?: string }));
+      const targetPlan = body.plan === 'ultra' ? 'ultra' : 'pro';
+
+      const priceId = targetPlan === 'ultra' ? config.stripeUltraPriceId : config.stripeProPriceId;
+      if (!priceId) {
+        return c.json({ error: `${targetPlan} plan price not configured` }, 503);
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: 'https://simplestclaw.com/settings?upgraded=true',
+        cancel_url: 'https://simplestclaw.com/settings',
+        metadata: {
+          userId: user.id,
+        },
+      });
+
+      return c.json({ url: session.url });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[billing] Upgrade failed for user:', user.id, err);
+      return c.json({ error: `Checkout failed: ${message}` }, 500);
     }
-
-    // Determine target plan from request body (default: pro)
-    const body = await c.req.json<{ plan?: string }>().catch(() => ({} as { plan?: string }));
-    const targetPlan = body.plan === 'ultra' ? 'ultra' : 'pro';
-
-    const priceId = targetPlan === 'ultra' ? config.stripeUltraPriceId : config.stripeProPriceId;
-    if (!priceId) {
-      return c.json({ error: `${targetPlan} plan price not configured` }, 503);
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: 'https://simplestclaw.com/settings?upgraded=true',
-      cancel_url: 'https://simplestclaw.com/settings',
-      metadata: {
-        userId: user.id,
-      },
-    });
-
-    return c.json({ url: session.url });
   });
 
   // ── Stripe webhook ────────────────────────────────────────────────
