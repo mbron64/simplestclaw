@@ -137,7 +137,7 @@ function TabButton({
 
 // ── General Tab ─────────────────────────────────────────────────────
 
-function GeneralSection({ account }: { account: AccountData }) {
+function GeneralSection({ account, onSwitchTab }: { account: AccountData; onSwitchTab: (tab: Tab) => void }) {
   const [copied, setCopied] = useState(false);
 
   const copyKey = () => {
@@ -156,6 +156,12 @@ function GeneralSection({ account }: { account: AccountData }) {
     ultra: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
   };
   const planBadgeColor = planBadgeColors[account.subscription.plan] || planBadgeColors.free;
+
+  const planCta = account.subscription.plan === 'free'
+    ? 'Upgrade plan'
+    : account.subscription.plan === 'pro'
+      ? 'Manage or upgrade plan'
+      : 'Manage plan';
 
   return (
     <div className="space-y-8">
@@ -202,6 +208,20 @@ function GeneralSection({ account }: { account: AccountData }) {
               </div>
             </>
           )}
+
+          <div className="h-px bg-white/5" />
+
+          <button
+            type="button"
+            onClick={() => onSwitchTab('billing')}
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-white/60 hover:text-white/90 transition-colors"
+          >
+            <CreditCardIcon className="w-3.5 h-3.5" />
+            {planCta}
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -807,7 +827,7 @@ function SettingsPageContent() {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
-            {activeTab === 'general' && <GeneralSection account={account} />}
+            {activeTab === 'general' && <GeneralSection account={account} onSwitchTab={setActiveTab} />}
             {activeTab === 'billing' && (
               <BillingSection account={account} accessToken={accessToken} />
             )}
