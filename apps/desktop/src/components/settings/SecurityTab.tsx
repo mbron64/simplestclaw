@@ -1,5 +1,6 @@
 import { Code, ExternalLink, FileText, Lock, MessageSquare, RefreshCw, Shield, Terminal, Trash2, Zap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { type ActivityLogEntry, useAppStore } from '../../lib/store';
 import { type ToolProfile, tauri } from '../../lib/tauri';
 
@@ -191,7 +192,7 @@ export function SecurityTab() {
   };
 
   const handleOpenPrivacySettings = () => {
-    window.open('x-apple.systempreferences:com.apple.preference.security?Privacy', '_blank');
+    shellOpen('x-apple.systempreferences:com.apple.preference.security?Privacy');
   };
 
   return (

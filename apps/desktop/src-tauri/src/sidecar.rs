@@ -155,6 +155,14 @@ impl SidecarManager {
         // "Cannot find package" errors with dependencies like axios
         clear_npx_cache();
 
+        // Clear stale device pairing data from previous gateway runs.
+        // OpenClaw 2026.2.14+ enforces explicit scopes on device tokens.
+        // Tokens created by older versions have empty scopes, which causes
+        // "missing scope: operator.write" errors. Since we generate a fresh
+        // --token on every start, old pairing data is useless.
+        // See: https://github.com/openclaw/openclaw/issues/16827
+        clear_device_pairing_data();
+
         // Get the bin directory for PATH
         let node_path = std::path::Path::new(&node_cmd);
         let bin_dir = node_path.parent().map(|p| p.to_string_lossy().to_string());
@@ -594,6 +602,28 @@ fn clear_npx_cache() {
         if npx_alt.exists() {
             println!("[openclaw] Clearing alternate npx cache at {:?}", npx_alt);
             let _ = std::fs::remove_dir_all(&npx_alt);
+        }
+    }
+}
+
+/// Clear stale device pairing data from ~/.openclaw/devices/.
+///
+/// OpenClaw stores device tokens (with scope grants) in paired.json.
+/// Tokens created before the scope enforcement feature (2026.2.14) have
+/// empty scopes, causing "missing scope: operator.write" on connect.
+/// Since SimplestClaw generates a fresh gateway token on every start,
+/// old pairing records are irrelevant and should be cleaned.
+/// See: https://github.com/openclaw/openclaw/issues/16827
+fn clear_device_pairing_data() {
+    if let Some(home) = dirs::home_dir() {
+        let devices_dir = home.join(".openclaw").join("devices");
+        if devices_dir.exists() {
+            println!("[openclaw] Clearing stale device pairing data at {:?}", devices_dir);
+            if let Err(e) = std::fs::remove_dir_all(&devices_dir) {
+                println!("[openclaw] Warning: Failed to clear device data: {}", e);
+            } else {
+                println!("[openclaw] Device pairing data cleared");
+            }
         }
     }
 }
