@@ -5,13 +5,14 @@
 <h1 align="center">simplestclaw</h1>
 
 <p align="center">
-  <strong>The simplest way to run OpenClaw. One click. Local and cloud.</strong>
+  <strong>The simplest way to run OpenClaw. Desktop app for macOS, Windows, and Linux.</strong>
 </p>
 
 <p align="center">
-  <a href="https://simplestclaw.com">Website</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="https://github.com/mbron64/simplestclaw/releases">Downloads</a> •
+  <a href="https://simplestclaw.com">Website</a> &bull;
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="https://github.com/mbron64/simplestclaw/releases">Downloads</a> &bull;
+  <a href="https://simplestclaw.com/pricing">Pricing</a> &bull;
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -25,35 +26,43 @@
 
 ## What is SimplestClaw?
 
-SimplestClaw makes it dead simple to get [OpenClaw](https://github.com/openclawai/openclaw) running — either on your own machine or in the cloud. No complex setup, no Telegram bots, just click and go.
+SimplestClaw makes it dead simple to get [OpenClaw](https://github.com/openclawai/openclaw) running. Download the desktop app, sign up, and start coding with AI — no terminal, no config files.
 
-- ✅ **One-click setup** for both local and cloud deployments
-- ✅ **Desktop app** that bundles everything you need (macOS)
-- ✅ **Cloud deploy** to Railway in under 60 seconds
-- ✅ **100% open source** (MIT license)
+- **Desktop app** for macOS, Windows, and Linux
+- **Managed API keys** — sign up and use top AI models instantly (no provider accounts needed)
+- **Bring your own key** — use your own Anthropic, OpenAI, Google, or OpenRouter API key
+- **Cloud deploy** — self-host on Railway with your own API key
+- **100% open source** (MIT license)
 
 ---
 
 ## Quick Start
 
-### Option 1: Desktop App (Free)
+### Option 1: Desktop App (Recommended)
 
-Download and run locally — your data stays on your machine.
+Download the app, sign up, and start chatting with AI models.
 
-**[⬇️ Download for macOS](https://github.com/mbron64/simplestclaw/releases/latest)**
+**[Download for macOS, Windows & Linux](https://github.com/mbron64/simplestclaw/releases/latest)**
 
-> Windows & Linux coming soon
+Two ways to use it:
+
+| Mode | How it works |
+|------|-------------|
+| **Managed** (recommended) | Sign up at [simplestclaw.com](https://simplestclaw.com) and get instant access to Claude, GPT, and Gemini models. No API keys needed. |
+| **Bring your own key** | Enter your own API key from Anthropic, OpenAI, Google, or OpenRouter. Requests go directly to the provider. |
 
 ### Option 2: Cloud (Railway)
 
-Deploy to the cloud in 60 seconds. Pick your AI provider:
+Self-host on Railway with your own API key:
 
 | Provider | |
 |----------|---|
 | **Anthropic** (Claude) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-anthropic) |
-| **OpenAI** (GPT-4) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openai) |
+| **OpenAI** (GPT) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openai) |
 | **Google** (Gemini) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-gemini) |
 | **OpenRouter** | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/simplestclaw-openrouter) |
+
+> Note: Cloud deployments run in a sandboxed environment with no knowledge of your local files, tools, or computer.
 
 <details>
 <summary><strong>What you'll need</strong></summary>
@@ -65,15 +74,31 @@ Deploy to the cloud in 60 seconds. Pick your AI provider:
 
 ---
 
+## Pricing (Managed Mode)
+
+Use top AI models without managing your own API keys. Manage your subscription at [simplestclaw.com/settings](https://simplestclaw.com/settings).
+
+| | Free | Pro | Ultra |
+|---|---|---|---|
+| **Price** | $0 | $20/month | $150/month |
+| **Messages/day** | 10 | 200 | 2,000 |
+| **Models** | Claude Sonnet 4.5, GPT-5 Mini | 5 models | All 7 models including Claude Opus 4.5 and GPT-5.2 |
+
+See full details at [simplestclaw.com/pricing](https://simplestclaw.com/pricing).
+
+> Bring your own key is always free — you pay your provider directly.
+
+---
+
 ## Why SimplestClaw?
 
 | | SimplestClaw | Other Options |
 |---|---|---|
 | Setup | One click | Terminal + config files |
 | Telegram | Not required | Often required |
-| Desktop | Native app | Browser-only |
+| Desktop | macOS, Windows, Linux | Browser-only |
 | Open source | Yes (MIT) | Varies |
-| Cost | Free local / $5 cloud | Varies |
+| Cost | Free tier / BYO key / Pro plans | Varies |
 
 ---
 
@@ -92,10 +117,12 @@ pnpm dev
 ```
 simplestclaw/
 ├── apps/
-│   ├── web/        # Marketing website
-│   ├── gateway/    # Railway-deployable gateway
-│   └── desktop/    # Tauri desktop app
+│   ├── web/        # Marketing website (Next.js)
+│   ├── desktop/    # Desktop app (Tauri + React)
+│   ├── proxy/      # API proxy & billing service (Hono)
+│   └── gateway/    # Railway-deployable gateway
 ├── packages/
+│   ├── models/     # Shared model definitions & plan limits
 │   ├── ui/         # Shared components
 │   └── openclaw-client/
 └── package.json
@@ -109,11 +136,11 @@ simplestclaw/
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
 
-- 🐛 [Report a bug](https://github.com/mbron64/simplestclaw/issues/new?template=bug_report.md)
-- 💡 [Request a feature](https://github.com/mbron64/simplestclaw/issues/new?template=feature_request.md)
+- [Report a bug](https://github.com/mbron64/simplestclaw/issues/new?template=bug_report.md)
+- [Request a feature](https://github.com/mbron64/simplestclaw/issues/new?template=feature_request.md)
 
 ---
 
 ## License
 
-MIT © [SimplestClaw](LICENSE)
+MIT &copy; [SimplestClaw](LICENSE)
